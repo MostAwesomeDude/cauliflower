@@ -12,6 +12,7 @@ At the end of the program, the stack is popped into I and J for analysis.
 """
 
 from cauliflower.assembler import *
+from cauliflower.builtins import builtin
 
 def trampoline(address):
     """
@@ -123,31 +124,6 @@ def tail():
     ucode = assemble(SET, I, POP)
     ucode += assemble(SET, J, POP)
     return ucode
-
-
-def builtin(word):
-    """
-    Compile a builtin word.
-    """
-
-    try:
-        i = int(word)
-        ucode = assemble(SET, PUSH, i)
-        return ucode
-    except ValueError:
-        pass
-
-    if word == "+":
-        ucode = assemble(SET, J, POP)
-        ucode += assemble(ADD, PEEK, J)
-        return ucode
-
-    if word == "-":
-        ucode = assemble(SET, J, POP)
-        ucode += assemble(SUB, PEEK, J)
-        return ucode
-
-    raise Exception("Don't know builtin %r" % word)
 
 
 with open("test.forth", "rb") as f:
