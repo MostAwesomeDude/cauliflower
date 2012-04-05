@@ -2,6 +2,7 @@
 An assembler for Notch's CPU.
 """
 
+from collections import namedtuple
 from struct import pack
 
 (SET, ADD, SUB, MUL, DIV, MOD, SHL, SHR, AND, BOR, XOR, IFE, IFN, IFG, IFB
@@ -9,7 +10,13 @@ from struct import pack
 
 binops = range(1, 16)
 
-A, B, C, X, Y, Z, I, J = [object() for chaff in range(8)]
+Offset = namedtuple("Offset", "register, offset")
+
+class Register(object):
+    def __add__(self, value):
+        return Offset(self, value)
+
+A, B, C, X, Y, Z, I, J = [Register() for chaff in range(8)]
 POP, PEEK, PUSH, SP, PC, O = [object() for chaff in range(24, 30)]
 
 rdict = dict((k, v) for k, v in zip([A, B, C, X, Y, Z, I, J], range(8)))
@@ -38,6 +45,9 @@ def value(v):
         if iv in registers:
             # Indirect register
             return rdict[iv] + 0x8,
+        elif isinstance(iv, Offset):
+            # Indirect register plus offset
+            return rdict[iv.register] + 0x10, iv.offset
         else:
             # Extended indirection
             return 0x1e, iv

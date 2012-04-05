@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from cauliflower.assembler import A, PC, PUSH, SET, assemble
+from cauliflower.assembler import A, PC, PUSH, SET, Z, assemble
 
 class TestAssembler(TestCase):
 
@@ -11,6 +11,10 @@ class TestAssembler(TestCase):
     def test_set_pc_literal_long(self):
         expected = "\x7d\xc1\x12\x34"
         self.assertEqual(expected, assemble(SET, PC, 0x1234))
+
+    def test_set_pc_z_offset(self):
+        expected = "\x55\xc1\x12\x34"
+        self.assertEqual(expected, assemble(SET, PC, [Z + 0x1234]))
 
     def test_set_push_literal(self):
         expected = "\x89\xa1"
