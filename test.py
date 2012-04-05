@@ -15,20 +15,34 @@ At the end of the program, the stack is popped into I and J for analysis.
 from struct import pack
 import sys
 
-from cauliflower.assembler import (I, J, PC, POP, SET, SUB, Z, assemble)
+from cauliflower.assembler import (A, ADD, I, J, PC, POP, SET, SUB, Z,
+                                   Absolute, assemble)
 from cauliflower.builtins import builtin
 
 
-def call(target, ret):
+def call(target):
     """
     Call a subroutine.
 
     Safety not guaranteed; you might not ever come back.
     """
 
+    # Make space on the call stack.
     ucode = assemble(SUB, Z, 0x1)
-    ucode += assemble(SET, [Z], ret)
-    ucode += assemble(SET, PC, target)
+    # Hax. Calculate where we currently are based on PC, and then expect that
+    # we will take a certain number of words to make our actual jump.
+    # Grab PC into a GPR. Note that PC increments before it's grabbed here, so
+    # this instruction doesn't count towards our total.
+    ucode += assemble(SET, A, PC)
+    # 0x0+1: Add our offset to PC in A.
+    ucode += assemble(ADD, A, 0x4)
+    # 0x1+1: Push our offset into the ret/call stack on Z.
+    ucode += assemble(SET, [Z], A)
+    # 0x2+2: Make our call, rigged so that it will always be two words.
+    ucode += assemble(SET, PC, Absolute(target))
+    # 0x4 is business as usual. Whereever we were from, we *probably* wanna
+    # decrement Z again.
+    ucode += assemble(ADD, Z, 0x1)
     return ucode
 
 
@@ -52,7 +66,7 @@ def bootloader(start):
     # First things first. Set up the call stack. Currently hardcoded.
     ucode = assemble(SET, Z, 0xd000)
     # Hardcode the location of the tail, and call.
-    ucode += call(start, 0x5)
+    ucode += call(start)
     # And we're off! As soon as we come back down...
     ucode += tail()
     # Finish off with an illegal opcode.
@@ -71,11 +85,8 @@ def subroutine(name, words, pc, context):
 
     for word in words:
         if word in context:
-            # Compile a call. XXX refactor when references exist.
-            c = call(context[word][0], pc + len(ucode))
-            # The amount of space required ahead of this call.
-            space = len(c)
-            ucode += call(context[word][0], pc + len(ucode) + space)
+            # Compile a call.
+            ucode += call(context[word][0])
         else:
             ucode += builtin(word)
 
