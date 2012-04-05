@@ -10,6 +10,7 @@ from struct import pack
 
 binops = range(1, 16)
 
+Absolute = namedtuple("Absolute", "value")
 Offset = namedtuple("Offset", "register, offset")
 
 class Register(object):
@@ -40,6 +41,9 @@ def value(v):
     if v in direct_registers:
         # Register
         return drdict[v],
+    elif isinstance(v, Absolute):
+        # Inline/extended literal, guaranteed to be extended
+        return 0x1f, v.value
     elif isinstance(v, list):
         iv, = v
         if iv in registers:
