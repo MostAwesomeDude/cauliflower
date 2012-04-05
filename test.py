@@ -63,9 +63,7 @@ def subroutine(name, words, pc, context):
     """
     Compile a list of words into a new word and add it to the context.
 
-    All subroutines, including main, are called into; thus they assume that
-    the current stack is the call stack and switch out of it before doing any
-    work. They switch back to the call stack when returning.
+    All subroutines, including main, are called into.
     """
 
     ucode = ""
