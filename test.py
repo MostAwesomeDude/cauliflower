@@ -11,15 +11,10 @@ is on SP.
 At the end of the program, the stack is popped into I and J for analysis.
 """
 
+import sys
+
 from cauliflower.assembler import *
 from cauliflower.builtins import builtin
-
-def trampoline(address):
-    """
-    Jump to an absolute address. Always two words.
-    """
-
-    return pack(">HH", 0x7dc1, address)
 
 
 def switch_to_call():
@@ -126,7 +121,7 @@ def tail():
     return ucode
 
 
-with open("test.forth", "rb") as f:
+with open("prelude.forth", "rb") as f:
     tokens = [t.strip().lower() for t in f.read().split()]
     pc = len(bootloader(0)) // 2 + 1
     context = {}
@@ -140,7 +135,20 @@ with open("test.forth", "rb") as f:
             pc += len(sub) // 2
 
 
-with open("test.bin", "wb") as f:
+with open(sys.argv[1], "rb") as f:
+    tokens = [t.strip().lower() for t in f.read().split()]
+    pc = len(bootloader(0)) // 2 + 1
+    while tokens:
+        t, tokens = tokens[0], tokens[1:]
+        if t == ":":
+            name = tokens[0]
+            end = tokens.index(";")
+            sub = subroutine(name, tokens[1:end], pc, context)
+            # Add the size of the subroutine to PC.
+            pc += len(sub) // 2
+
+
+with open(sys.argv[2], "wb") as f:
     start = context["main"][0]
     boot = bootloader(start)
     print "Bootloader: %d bytes (%d words)" % (len(boot), len(boot) // 2)

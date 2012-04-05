@@ -1,0 +1,1 @@
+: 2dup over over ;
