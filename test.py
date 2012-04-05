@@ -73,5 +73,70 @@ data = [
     assemble(IFN, A, 0x10),
 ]
 
+def bootloader(address):
+    """
+    Jump to an address. Always two words.
+    """
+
+    return pack(">HH", 0x7dc1, address)
+
+def subroutine(name, words, pc, context):
+    """
+    Compile a list of words into a new word and add it to the context.
+    """
+
+    ucode = ""
+
+    for word in words:
+        if word in context:
+            # Compile a call.
+            pass
+        else:
+            ucode += builtin(word)
+
+    context[name] = pc, ucode
+    return ucode
+
+def tail():
+    """
+    Pop the stack into I and J so that we can see what's been done.
+    """
+
+    ucode = assemble(SET, I, POP)
+    ucode += assemble(SET, J, POP)
+    return ucode
+
+def builtin(word):
+    """
+    Compile a builtin word.
+    """
+
+    try:
+        i = int(word)
+        ucode = assemble(SET, PUSH, i)
+        return ucode
+    except ValueError:
+        pass
+
+    raise Exception("Don't know builtin %r" % word)
+
+with open("test.forth", "rb") as f:
+    tokens = [t.strip() for t in f.read().split()]
+    pc = 0x2
+    context = {}
+    ucode = []
+    while tokens:
+        t, tokens = tokens[0], tokens[1:]
+        if t == ":":
+            name = tokens[0]
+            end = tokens.index(";")
+            sub = subroutine(name, tokens[1:end], pc, context)
+            ucode.append(sub)
+            pc += len(sub)
+
 with open("test.bin", "wb") as f:
-    f.write("".join(data))
+    start = context["main"][0]
+    f.write(bootloader(start))
+    for u in ucode:
+        f.write(u)
+    f.write(tail())
