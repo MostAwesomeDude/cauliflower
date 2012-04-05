@@ -66,13 +66,6 @@ def assemble(op, a, b=None):
 
     raise Exception("Couldn't deal with op %r" % (op,))
 
-data = [
-    assemble(SET, A, 0x30),
-    assemble(SET, [0x1000], 0x20),
-    assemble(SUB, A, [0x1000]),
-    assemble(IFN, A, 0x10),
-]
-
 def trampoline(address):
     """
     Jump to an address. Always two words.
@@ -121,6 +114,11 @@ def builtin(word):
     if word == "+":
         ucode = assemble(SET, J, POP)
         ucode += assemble(ADD, PEEK, J)
+        return ucode
+
+    if word == "-":
+        ucode = assemble(SET, J, POP)
+        ucode += assemble(SUB, PEEK, J)
         return ucode
 
     raise Exception("Don't know builtin %r" % word)
