@@ -4,13 +4,13 @@ from struct import pack
 
 SET, ADD, SUB, MUL, DIV, MOD, SHL, SHR, AND, BOR, XOR, IFE, IFN, IFG, IFB = range(1, 16)
 
-binops = set(range(1, 16))
+binops = range(1, 16)
 
 A, B, C, X, Y, Z, I, J = range(8)
 POP, PEEK, PUSH, SP, PC, O = range(24, 30)
 
-registers = set(range(8))
-direct_registers = registers | set(range(24, 30))
+registers = range(8)
+direct_registers = registers + range(24, 30)
 
 def value(v):
     """
@@ -30,6 +30,9 @@ def value(v):
         if iv in registers:
             # Indirect register
             return iv + 0x8,
+        else:
+            # Extended indirection
+            return 0x1e, iv
     elif isinstance(v, tuple):
         v, = v
         if v < 0x20:
@@ -59,4 +62,10 @@ def assemble(op, a, b=None):
 
     raise Exception("Couldn't deal with op %r" % (op,))
 
-print assemble(SET, A, (0x30,)).encode("hex")
+data = [
+    assemble(SET, A, (0x30,)),
+    assemble(SET, [0x1000], (0x20,)),
+]
+
+with open("test.bin", "wb") as f:
+    f.write("".join(data))
