@@ -5,7 +5,8 @@ A simple Forth compiler for Notch's CPU.
 
 J is used as a scratchpad. When necessary, so is I.
 
-SP is used for the main stack. X is used for the call stack.
+X is used for the main stack. Y is used for the call stack. The active stack
+is on SP.
 
 At the end of the program, the stack is popped into I and J for analysis.
 """
@@ -27,8 +28,8 @@ def switch_to_call():
     You'd better be calling if you do this!
     """
 
-    ucode = assemble(SET, J, SP)
-    ucode += assemble(SET, SP, X)
+    ucode = assemble(SET, X, SP)
+    ucode += assemble(SET, SP, Y)
     return ucode
 
 
@@ -37,8 +38,8 @@ def switch_to_main():
     Switch to the main stack.
     """
 
-    ucode = assemble(SET, X, SP)
-    ucode += assemble(SET, SP, J)
+    ucode = assemble(SET, Y, SP)
+    ucode += assemble(SET, SP, X)
     return ucode
 
 
@@ -75,7 +76,7 @@ def bootloader(start):
     """
 
     # First things first. Set up the call stack. Currently hardcoded.
-    ucode = assemble(SET, X, 0xd000)
+    ucode = assemble(SET, Y, 0xd000)
     # Hardcode the location of the tail, and call.
     ucode += call(start, 0x6)
     # And we're off! As soon as we come back down...
@@ -151,7 +152,7 @@ def builtin(word):
 
 with open("test.forth", "rb") as f:
     tokens = [t.strip() for t in f.read().split()]
-    pc = len(bootloader(0)) // 2
+    pc = len(bootloader(0)) // 2 + 1
     context = {}
     while tokens:
         t, tokens = tokens[0], tokens[1:]
@@ -172,5 +173,5 @@ with open("test.bin", "wb") as f:
         pc, u = context[name]
         print "Sub %s: %d bytes (%d words) @ 0x%x" % (name, len(u),
             len(u) // 2, pc)
-        f.seek(pc)
+        f.seek(pc * 2)
         f.write(u)
