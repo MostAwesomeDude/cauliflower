@@ -1,4 +1,4 @@
-from cauliflower.assembler import (ADD, AND, BOR, DIV, J, MUL, PEEK, POP,
+from cauliflower.assembler import (ADD, AND, BOR, DIV, J, MOD, MUL, PEEK, POP,
                                    PUSH, SET, SP, SUB, XOR, assemble)
 
 def drop():
@@ -48,6 +48,7 @@ binops = {
     "+": ADD,
     "-": SUB,
     "/": DIV,
+    "mod": MOD,
     "and": AND,
     "invert": XOR,
     "or": BOR,
