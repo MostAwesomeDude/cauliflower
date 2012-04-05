@@ -3,10 +3,11 @@
 """
 A simple Forth compiler for Notch's CPU.
 
-J is used as a scratchpad. When necessary, so is I.
+The main data stack lives in SP, always. PUSH and POP are the preferred
+methods of operating on the stack.
 
-X is used for the main stack. Y is used for the call stack. The active stack
-is on SP.
+The return/call stack is hacked onto Z. Explicit manipulations are done to
+modify Z.
 
 At the end of the program, the stack is popped into I and J for analysis.
 """
@@ -17,28 +18,6 @@ from cauliflower.assembler import *
 from cauliflower.builtins import builtin
 
 
-def switch_to_call():
-    """
-    Switch to the call stack.
-
-    You'd better be calling if you do this!
-    """
-
-    ucode = assemble(SET, X, SP)
-    ucode += assemble(SET, SP, Y)
-    return ucode
-
-
-def switch_to_main():
-    """
-    Switch to the main stack.
-    """
-
-    ucode = assemble(SET, Y, SP)
-    ucode += assemble(SET, SP, X)
-    return ucode
-
-
 def call(target, ret):
     """
     Call a subroutine.
@@ -46,8 +25,8 @@ def call(target, ret):
     Safety not guaranteed; you might not ever come back.
     """
 
-    ucode = switch_to_call()
-    ucode += assemble(SET, PUSH, ret)
+    ucode = assemble(SUB, Z, 0x1)
+    ucode += assemble(SET, [Z], ret)
     ucode += assemble(SET, PC, target)
     return ucode
 
@@ -56,12 +35,10 @@ def ret():
     """
     Return to the caller.
 
-    It's totally possible to return to lala-land if overused.
+    It's totally possible to return to lala-land...
     """
 
-    ucode = switch_to_call()
-    ucode += assemble(SET, PC, POP)
-    return ucode
+    return assemble(SET, PC, Z)
 
 
 def bootloader(start):
@@ -72,11 +49,10 @@ def bootloader(start):
     """
 
     # First things first. Set up the call stack. Currently hardcoded.
-    ucode = assemble(SET, Y, 0xd000)
+    ucode = assemble(SET, Z, 0xd000)
     # Hardcode the location of the tail, and call.
-    ucode += call(start, 0x6)
+    ucode += call(start, 0x5)
     # And we're off! As soon as we come back down...
-    ucode += switch_to_main()
     ucode += tail()
     # Finish off with an illegal opcode.
     ucode += pack(">H", 0x0)
@@ -92,16 +68,15 @@ def subroutine(name, words, pc, context):
     work. They switch back to the call stack when returning.
     """
 
-    ucode = switch_to_main()
+    ucode = ""
 
     for word in words:
         if word in context:
-            # Compile a call.
+            # Compile a call. XXX refactor when references exist.
+            c = call(context[word][0], pc + len(ucode))
             # The amount of space required ahead of this call.
-            space = 0x6
+            space = len(c)
             ucode += call(context[word][0], pc + len(ucode) + space)
-            # Switch back to main stack.
-            ucode += switch_to_main()
         else:
             ucode += builtin(word)
 
