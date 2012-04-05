@@ -38,7 +38,7 @@ def ret():
     It's totally possible to return to lala-land...
     """
 
-    return assemble(SET, PC, Z)
+    return assemble(SET, PC, [Z])
 
 
 def bootloader(start):
@@ -112,7 +112,6 @@ with open("prelude.forth", "rb") as f:
 
 with open(sys.argv[1], "rb") as f:
     tokens = [t.strip().lower() for t in f.read().split()]
-    pc = len(bootloader(0)) // 2 + 1
     while tokens:
         t, tokens = tokens[0], tokens[1:]
         if t == ":":
