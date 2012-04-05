@@ -65,6 +65,8 @@ def assemble(op, a, b=None):
 data = [
     assemble(SET, A, (0x30,)),
     assemble(SET, [0x1000], (0x20,)),
+    assemble(SUB, A, [0x1000]),
+    assemble(IFN, A, (0x10,)),
 ]
 
 with open("test.bin", "wb") as f:
