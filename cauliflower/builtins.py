@@ -1,38 +1,34 @@
-from cauliflower.assembler import (ADD, AND, BOR, DIV, J, MOD, MUL, PEEK, POP,
-                                   PUSH, SET, SP, SUB, XOR, assemble)
+from cauliflower.assembler import (A, ADD, AND, B, BOR, C, DIV, MOD, MUL,
+                                   PEEK, POP, PUSH, SET, SP, SUB, XOR,
+                                   assemble)
 
 def drop():
     return assemble(ADD, SP, 0x1)
 
 def dup():
-    ucode = assemble(SET, J, PEEK)
-    ucode += assemble(SET, PUSH, J)
+    ucode = assemble(SET, A, PEEK)
+    ucode += assemble(SET, PUSH, A)
     return ucode
 
 def over():
-    # XXX this could be far better if our assembler could cobble together
-    # things like [SP + 1]
-    # ucode = assemble(SET, J, [SP + 0x1])
-    ucode = assemble(SET, J, SP)
-    ucode += assemble(ADD, J, 0x1)
-    ucode += assemble(SET, PUSH, [J])
+    ucode = assemble(SET, A, SP)
+    ucode += assemble(SET, PUSH, [A + 0x1])
     return ucode
 
 def rot():
-    # XXX ugh, is this really the best way?
-    ucode = assemble(SET, J, POP)
-    ucode += assemble(SET, I, POP)
-    ucode += assemble(SET, Z, POP)
-    ucode += assemble(SET, PUSH, I)
-    ucode += assemble(SET, PUSH, J)
-    ucode += assemble(SET, PUSH, Z)
+    ucode = assemble(SET, A, POP)
+    ucode += assemble(SET, B, POP)
+    ucode += assemble(SET, C, POP)
+    ucode += assemble(SET, PUSH, B)
+    ucode += assemble(SET, PUSH, A)
+    ucode += assemble(SET, PUSH, C)
     return ucode
 
 def swap():
-    ucode = assemble(SET, J, POP)
-    ucode += assemble(SET, I, POP)
-    ucode += assemble(SET, PUSH, J)
-    ucode += assemble(SET, PUSH, I)
+    ucode = assemble(SET, A, POP)
+    ucode += assemble(SET, B, POP)
+    ucode += assemble(SET, PUSH, A)
+    ucode += assemble(SET, PUSH, B)
     return ucode
 
 prims = {
@@ -61,8 +57,8 @@ def binop(op):
 
     opcode = binops[op]
 
-    ucode = assemble(SET, J, POP)
-    ucode += assemble(opcode, PEEK, J)
+    ucode = assemble(SET, A, POP)
+    ucode += assemble(opcode, PEEK, A)
     return ucode
 
 
