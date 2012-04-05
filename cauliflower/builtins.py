@@ -1,5 +1,5 @@
-from cauliflower.assembler import (ADD, DIV, J, MUL, PEEK, POP, PUSH, SET, SP,
-                                   SUB, assemble)
+from cauliflower.assembler import (ADD, AND, BOR, DIV, J, MUL, PEEK, POP,
+                                   PUSH, SET, SP, SUB, XOR, assemble)
 
 def drop():
     return assemble(ADD, SP, 0x1)
@@ -44,10 +44,13 @@ prims = {
 }
 
 binops = {
+    "*": MUL,
     "+": ADD,
     "-": SUB,
-    "*": MUL,
     "/": DIV,
+    "and": AND,
+    "invert": XOR,
+    "or": BOR,
 }
 
 def binop(op):

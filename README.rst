@@ -23,6 +23,9 @@ The arithmetic operators:
  * -
  * *
  * /
+ * and
+ * invert
+ * or
 
 Missing Words
 =============
