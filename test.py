@@ -118,6 +118,11 @@ def builtin(word):
     except ValueError:
         pass
 
+    if word == "+":
+        ucode = assemble(SET, J, POP)
+        ucode += assemble(ADD, PEEK, J)
+        return ucode
+
     raise Exception("Don't know builtin %r" % word)
 
 with open("test.forth", "rb") as f:
