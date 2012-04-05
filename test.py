@@ -127,7 +127,7 @@ def tail():
 
 
 with open("test.forth", "rb") as f:
-    tokens = [t.strip() for t in f.read().split()]
+    tokens = [t.strip().lower() for t in f.read().split()]
     pc = len(bootloader(0)) // 2 + 1
     context = {}
     while tokens:

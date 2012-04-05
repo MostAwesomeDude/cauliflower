@@ -18,6 +18,16 @@ def over():
     ucode += assemble(SET, PUSH, [J])
     return ucode
 
+def rot():
+    # XXX ugh, is this really the best way?
+    ucode = assemble(SET, J, POP)
+    ucode += assemble(SET, I, POP)
+    ucode += assemble(SET, Z, POP)
+    ucode += assemble(SET, PUSH, I)
+    ucode += assemble(SET, PUSH, J)
+    ucode += assemble(SET, PUSH, Z)
+    return ucode
+
 def swap():
     ucode = assemble(SET, J, POP)
     ucode += assemble(SET, I, POP)
@@ -29,6 +39,7 @@ prims = {
     "drop": drop,
     "dup": dup,
     "over": over,
+    "rot": rot,
     "swap": swap,
 }
 
