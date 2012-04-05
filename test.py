@@ -73,7 +73,7 @@ data = [
     assemble(IFN, A, 0x10),
 ]
 
-def bootloader(address):
+def trampoline(address):
     """
     Jump to an address. Always two words.
     """
@@ -129,19 +129,30 @@ with open("test.forth", "rb") as f:
     tokens = [t.strip() for t in f.read().split()]
     pc = 0x2
     context = {}
-    ucode = []
     while tokens:
         t, tokens = tokens[0], tokens[1:]
         if t == ":":
             name = tokens[0]
             end = tokens.index(";")
             sub = subroutine(name, tokens[1:end], pc, context)
-            ucode.append(sub)
-            pc += len(sub)
+            # Increment PC times 2 for the word size.
+            pc += len(sub) * 2
+            if name == "main":
+                # Leave space for a trampoline which we will use to reach the
+                # end of the program.
+                pc += 0x2
 
 with open("test.bin", "wb") as f:
     start = context["main"][0]
-    f.write(bootloader(start))
-    for u in ucode:
+    f.write(trampoline(start))
+    for name in context:
+        pc, u = context[name]
         f.write(u)
+        if name == "main":
+            # Set the end-of-program trampoline.
+            address = pc + len(u)
+    target = f.tell() // 2
     f.write(tail())
+    tramp = trampoline(target)
+    f.seek(address * 2)
+    f.write(tramp)
