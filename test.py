@@ -12,9 +12,10 @@ modify Z.
 At the end of the program, the stack is popped into I and J for analysis.
 """
 
+from struct import pack
 import sys
 
-from cauliflower.assembler import *
+from cauliflower.assembler import (I, J, PC, POP, SET, SUB, Z, assemble)
 from cauliflower.builtins import builtin
 
 
