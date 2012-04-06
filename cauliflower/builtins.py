@@ -1,19 +1,22 @@
 from cauliflower.assembler import (A, ADD, AND, B, BOR, C, DIV, MOD, MUL,
-                                   PEEK, POP, PUSH, SET, SP, SUB, XOR,
+                                   PEEK, POP, PUSH, SET, SP, SUB, X, XOR,
                                    assemble)
 
 def drop():
     return assemble(ADD, SP, 0x1)
+
 
 def dup():
     ucode = assemble(SET, A, PEEK)
     ucode += assemble(SET, PUSH, A)
     return ucode
 
+
 def over():
     ucode = assemble(SET, A, SP)
     ucode += assemble(SET, PUSH, [A + 0x1])
     return ucode
+
 
 def rot():
     ucode = assemble(SET, A, POP)
@@ -24,6 +27,7 @@ def rot():
     ucode += assemble(SET, PUSH, C)
     return ucode
 
+
 def swap():
     ucode = assemble(SET, A, POP)
     ucode += assemble(SET, B, POP)
@@ -31,12 +35,30 @@ def swap():
     ucode += assemble(SET, PUSH, B)
     return ucode
 
+
+def to_r():
+    ucode = assemble(SUB, X, 0x1)
+    ucode += assemble(SET, [X], POP)
+    return ucode
+
+
+def r_at():
+    return assemble(SET, PUSH, [X])
+
+
+def rdrop():
+    return assemble(ADD, X, 0x1)
+
+
 prims = {
     "drop": drop,
     "dup": dup,
     "over": over,
     "rot": rot,
     "swap": swap,
+    ">r": to_r,
+    "r@": r_at,
+    "rdrop": rdrop,
 }
 
 binops = {

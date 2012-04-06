@@ -21,10 +21,12 @@ There are some primitive words which are emitted directly as assembly:
  * swap
  * \+, \-, \*, /
  * and, invert, or
+ * >r, r@, rdrop
 
 There are composite words in an included prelude, too.
 
  * 2dup
+ * r>
 
 Missing Words
 =============
