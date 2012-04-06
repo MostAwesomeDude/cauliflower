@@ -18,8 +18,7 @@ fully defined before they can be used.
 from struct import pack
 import sys
 
-from cauliflower.assembler import (A, ADD, I, J, PC, POP, SET, SUB, Z,
-                                   Absolute, assemble)
+from cauliflower.assembler import I, J, POP, SET, Z, assemble
 from cauliflower.builtins import builtin
 from cauliflower.control import call, ret
 
@@ -81,24 +80,30 @@ with open("prelude.forth", "rb") as f:
     tokens = [t.strip().lower() for t in f.read().split()]
     pc = len(bootloader(0)) // 2 + 1
     context = {}
-    while tokens:
-        t, tokens = tokens[0], tokens[1:]
-        if t == ":":
-            name = tokens[0]
-            end = tokens.index(";")
-            sub = subroutine(name, tokens[1:end], pc, context)
+    it = iter(tokens)
+    for token in it:
+        if token == ":":
+            name = next(it)
+            subtokens = []
+            while token != ";":
+                token = next(it)
+                subtokens.append(token)
+            sub = subroutine(name, subtokens, pc, context)
             # Add the size of the subroutine to PC.
             pc += len(sub) // 2
 
 
 with open(sys.argv[1], "rb") as f:
     tokens = [t.strip().lower() for t in f.read().split()]
-    while tokens:
-        t, tokens = tokens[0], tokens[1:]
-        if t == ":":
-            name = tokens[0]
-            end = tokens.index(";")
-            sub = subroutine(name, tokens[1:end], pc, context)
+    it = iter(tokens)
+    for token in it:
+        if token == ":":
+            name = next(it)
+            subtokens = []
+            while token != ";":
+                token = next(it)
+                subtokens.append(token)
+            sub = subroutine(name, subtokens, pc, context)
             # Add the size of the subroutine to PC.
             pc += len(sub) // 2
 
