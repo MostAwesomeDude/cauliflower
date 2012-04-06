@@ -10,6 +10,9 @@ The return/call stack is hacked onto Z. Explicit manipulations are done to
 modify Z.
 
 At the end of the program, the stack is popped into I and J for analysis.
+
+Like many Forths, this Forth does not support mutual recursion; words must be
+fully defined before they can be used.
 """
 
 from struct import pack
@@ -41,6 +44,19 @@ def bootloader(start):
     return ucode
 
 
+def compile_word(word, context):
+    """
+    Compile a single word.
+    """
+
+    if word in context:
+        # We've seen this word before, so compile a call to it.
+        return call(context[word][0])
+    else:
+        # Haven't seen this word, maybe it's a builtin?
+        return builtin(word)
+
+
 def subroutine(name, words, pc, context):
     """
     Compile a list of words into a new word and add it to the context.
@@ -48,16 +64,14 @@ def subroutine(name, words, pc, context):
     All subroutines, including main, are called into.
     """
 
-    ucode = ""
+    ucode = []
 
     for word in words:
-        if word in context:
-            # Compile a call.
-            ucode += call(context[word][0])
-        else:
-            ucode += builtin(word)
+        ucode.append(compile_word(word, context))
 
-    ucode += ret()
+    ucode.append(ret())
+
+    ucode = "".join(ucode)
 
     context[name] = pc, ucode
     return ucode
