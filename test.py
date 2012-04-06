@@ -76,36 +76,38 @@ def subroutine(name, words, pc, context):
     return ucode
 
 
+def compile_tokens(tokens, pc, context):
+    """
+    Compile some tokens and add any new words to the given context.
+
+    Returns the PC corresponding to the end of the context.
+    """
+
+    it = iter(tokens)
+    for token in it:
+        if token == ":":
+            name = next(it)
+            token = next(it)
+            subtokens = []
+            while token != ";":
+                subtokens.append(token)
+                token = next(it)
+            sub = subroutine(name, subtokens, pc, context)
+            # Add the size of the subroutine to PC.
+            pc += len(sub) // 2
+    return pc
+
+
 with open("prelude.forth", "rb") as f:
     tokens = [t.strip().lower() for t in f.read().split()]
     pc = len(bootloader(0)) // 2 + 1
     context = {}
-    it = iter(tokens)
-    for token in it:
-        if token == ":":
-            name = next(it)
-            subtokens = []
-            while token != ";":
-                token = next(it)
-                subtokens.append(token)
-            sub = subroutine(name, subtokens, pc, context)
-            # Add the size of the subroutine to PC.
-            pc += len(sub) // 2
+    pc = compile_tokens(tokens, pc, context)
 
 
 with open(sys.argv[1], "rb") as f:
     tokens = [t.strip().lower() for t in f.read().split()]
-    it = iter(tokens)
-    for token in it:
-        if token == ":":
-            name = next(it)
-            subtokens = []
-            while token != ";":
-                token = next(it)
-                subtokens.append(token)
-            sub = subroutine(name, subtokens, pc, context)
-            # Add the size of the subroutine to PC.
-            pc += len(sub) // 2
+    pc = compile_tokens(tokens, pc, context)
 
 
 with open(sys.argv[2], "wb") as f:
