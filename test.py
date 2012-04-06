@@ -84,17 +84,40 @@ def compile_tokens(tokens, pc, context):
     """
 
     it = iter(tokens)
+    ignore = False
+    subtokens = None
+
     for token in it:
+        # Handle comments. Whether or not a Forth permits nested comments is
+        # pretty up-in-the-air; this Forth does not permit nesting of
+        # comments.
+        if token == "(":
+            ignore = True
+            continue
+        elif token == ")":
+            ignore = False
+            continue
+
+        if ignore:
+            continue
+
+        # Look for subroutines.
         if token == ":":
-            name = next(it)
-            token = next(it)
             subtokens = []
-            while token != ";":
-                subtokens.append(token)
-                token = next(it)
-            sub = subroutine(name, subtokens, pc, context)
+            continue
+        elif token == ";":
+            if not subtokens:
+                raise Exception("Empty word definition!")
+            sub = subroutine(subtokens[0], subtokens[1:], pc, context)
             # Add the size of the subroutine to PC.
             pc += len(sub) // 2
+            continue
+        elif subtokens is not None:
+            subtokens.append(token)
+            continue
+
+        raise Exception("Lone word %r in tokenizer!" % token)
+
     return pc
 
 
