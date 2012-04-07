@@ -10,9 +10,6 @@ The return/call stack is hacked onto Z. Explicit manipulations are done to
 modify Z.
 
 At the end of the program, the stack is popped into I and J for analysis.
-
-Like many Forths, this Forth does not support mutual recursion; words must be
-fully defined before they can be used.
 """
 
 from collections import OrderedDict
