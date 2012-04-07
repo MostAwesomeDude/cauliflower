@@ -20,7 +20,7 @@ import sys
 
 from cauliflower.assembler import I, J, POP, SET, Z, assemble
 from cauliflower.builtins import builtin
-from cauliflower.control import call, ret
+from cauliflower.control import call, if_alone, if_else, ret
 
 
 def bootloader(start):
@@ -56,24 +56,74 @@ def compile_word(word, context):
         return builtin(word)
 
 
+def compile_if(name, count, words, pc, context):
+    """
+    Find an if statement, compile one or two blocks of it, and return the
+    pieces.
+    """
+
+    print "Compiling if", name, count, words, pc, context
+
+    if_clause = []
+    else_clause = []
+    else_pc = None
+
+    it = iter(words)
+    word = next(it)
+    while word not in ("else", "then"):
+        if_clause.append(word)
+        word = next(it)
+    print "If clause:", if_clause
+    if_pc = pc
+    pc = subroutine("%s_if_%d" % (name, count), if_clause, pc, context)
+
+    if word == "else":
+        word = next(it)
+        while word != "then":
+            else_clause.append(word)
+            word = next(it)
+        print "Else clause:", else_clause
+        else_pc = pc
+        pc = subroutine("%s_else_%d" % (name, count), else_clause, pc,
+                        context)
+
+    return count, if_pc, else_pc, pc
+
+
 def subroutine(name, words, pc, context):
     """
-    Compile a list of words into a new word and add it to the context.
+    Compile a list of words into a new word.
 
     All subroutines, including main, are called into.
     """
 
     ucode = []
+    it = iter(words)
+    ifs = 0
 
-    for word in words:
-        ucode.append(compile_word(word, context))
+    for word in it:
+        if word == "if":
+            ifs, ifpc, elsepc, pc = compile_if(name, ifs, it, pc, context)
+            print "Compiled if", ifs, ifpc, elsepc
+            print "PC is currently", pc
+            if elsepc is None:
+                ucode.append(if_alone(ifpc))
+            else:
+                ucode.append(if_else(ifpc, elsepc))
+        else:
+            ucode.append(compile_word(word, context))
 
     ucode.append(ret())
 
     ucode = "".join(ucode)
 
+    # Add the word to the dictionary.
     context[name] = pc, ucode
-    return ucode
+    print "Added", name, context[name]
+    # Add the size of the subroutine to PC.
+    pc += len(ucode) // 2
+
+    return pc
 
 
 def compile_tokens(tokens, pc, context):
@@ -108,9 +158,8 @@ def compile_tokens(tokens, pc, context):
         elif token == ";":
             if not subtokens:
                 raise Exception("Empty word definition!")
-            sub = subroutine(subtokens[0], subtokens[1:], pc, context)
-            # Add the size of the subroutine to PC.
-            pc += len(sub) // 2
+            name = subtokens[0]
+            pc = subroutine(name, subtokens[1:], pc, context)
             continue
         elif subtokens is not None:
             subtokens.append(token)
