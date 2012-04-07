@@ -18,8 +18,6 @@ def call(target):
     Safety not guaranteed; you might not ever come back.
     """
 
-    print "Calling", hex(target)
-
     # Make space on the call stack.
     ucode = assemble(SUB, Z, 0x1)
     # Hax. Calculate where we currently are based on PC, and then expect that

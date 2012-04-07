@@ -15,12 +15,24 @@ Like many Forths, this Forth does not support mutual recursion; words must be
 fully defined before they can be used.
 """
 
+from collections import OrderedDict
 from struct import pack
 import sys
 
 from cauliflower.assembler import I, J, POP, SET, Z, assemble
 from cauliflower.builtins import builtin
 from cauliflower.control import call, if_alone, if_else, ret
+
+
+# The threshold of inlining. Words that are compiled to this many machine
+# words of bytecode or fewer will not be inserted as callable subroutines into
+# the executable, but instead will join a library of builtin subroutines which
+# will be added verbatim whenever called. This is largely because calls can be
+# very expensive and composite words can be very small.
+# Currently, this threshold is set to eight words, the overhead of a call()
+# plus the ret() cost at the end of a subroutine, times two, the size of a
+# word.
+INLINING_THRESHOLD = 0x8 * 2
 
 
 def bootloader(start):
@@ -49,8 +61,13 @@ def compile_word(word, context):
     """
 
     if word in context:
-        # We've seen this word before, so compile a call to it.
-        return call(context[word][0])
+        # We've seen this word before, so either compile a call to it or
+        # include it verbatim if it's inlined.
+        pc, ucode = context[word]
+        if pc is None:
+            return ucode
+        else:
+            return call(pc)
     else:
         # Haven't seen this word, maybe it's a builtin?
         return builtin(word)
@@ -95,13 +112,19 @@ def subroutine(name, words, pc, context):
     Compile a list of words into a new word.
 
     All subroutines, including main, are called into.
+
+    If None is returned, then the new word is inline.
     """
 
     ucode = []
     it = iter(words)
     ifs = 0
 
+    force_inline = False
+
     for word in it:
+        if word == "inline":
+            force_inline = True
         if word == "if":
             ifs, ifpc, elsepc, pc = compile_if(name, ifs, it, pc, context)
             print "Compiled if", ifs, ifpc, elsepc
@@ -113,15 +136,21 @@ def subroutine(name, words, pc, context):
         else:
             ucode.append(compile_word(word, context))
 
-    ucode.append(ret())
-
     ucode = "".join(ucode)
+    inline = force_inline or len(ucode) <= INLINING_THRESHOLD
 
-    # Add the word to the dictionary.
-    context[name] = pc, ucode
-    print "Added", name, context[name]
-    # Add the size of the subroutine to PC.
-    pc += len(ucode) // 2
+    if inline:
+        # Add to the dictionary with pc == None, to indicate that this word
+        # can't be found in the emitted bytecode.
+        context[name] = None, ucode
+    else:
+        # This routine can be found in the bytecode, so it needs to return
+        # after call.
+        ucode += ret()
+        # Add the word to the dictionary.
+        context[name] = pc, ucode
+        # Add the size of the subroutine to PC.
+        pc += len(ucode) // 2
 
     return pc
 
@@ -173,7 +202,7 @@ def compile_tokens(tokens, pc, context):
 with open("prelude.forth", "rb") as f:
     tokens = [t.strip().lower() for t in f.read().split()]
     pc = len(bootloader(0)) // 2 + 1
-    context = {}
+    context = OrderedDict()
     pc = compile_tokens(tokens, pc, context)
 
 
@@ -189,6 +218,11 @@ with open(sys.argv[2], "wb") as f:
     f.write(boot)
     for name in context:
         pc, u = context[name]
+        if pc is None:
+            print "Word %s: %d bytes (%d words) (inline)" % (name, len(u),
+                len(u) // 2)
+            continue
+
         print "Sub %s: %d bytes (%d words) @ 0x%x" % (name, len(u),
             len(u) // 2, pc)
         f.seek(pc * 2)
