@@ -21,8 +21,8 @@ put the address of QUIT into IP, and then call IP.
 from StringIO import StringIO
 from struct import pack
 
-from cauliflower.assembler import (ADD, I, J, PEEK, PC, POP, PUSH, SET, SP,
-                                   SUB, Y, Z, assemble)
+from cauliflower.assembler import (A, ADD, I, IFN, J, PEEK, PC, POP, PUSH,
+                                   SET, SP, SUB, X, Y, Z, assemble)
 
 
 def NEXT():
@@ -105,9 +105,13 @@ class MetaAssembler(object):
     # literal instead of a long literal.
     NEXT = 0x0
 
+    # Workspace address.
+    workspace = 0x7000
+
+
     def __init__(self):
         self.space = StringIO()
-        self.space.write("\x00\x00" * 0x6)
+        self.bootloader()
 
         # Set up NEXT.
         self.NEXT = self.space.tell() // 2
@@ -115,6 +119,33 @@ class MetaAssembler(object):
 
         # Hold codewords for threads as we store them.
         self.codewords = {}
+
+
+    def bootloader(self):
+        """
+        Set up the bootloader.
+        """
+
+        self.space.write(assemble(SET, Y, 0xd000))
+        # XXX this would push QUIT and jump, at some point.
+        self.space.write("\x00" *  2 * 3)
+
+        # Allocate space for STATE.
+        self.STATE = self.space.tell()
+        self.space.write("\x00\x00")
+
+        # And HERE.
+        self.HERE = self.space.tell()
+        self.space.write("\x00\x00")
+
+        # And LATEST, too.
+        self.LATEST = self.space.tell()
+        self.space.write("\x00\x00")
+
+        # Don't forget BASE.
+        self.BASE = self.space.tell()
+        self.space.write("\x00\x00")
+
 
     def create(self, name):
         """
@@ -128,6 +159,7 @@ class MetaAssembler(object):
 
         self.previous = location
 
+
     def finish(self, name):
         """
         Finish writing a word or thread.
@@ -136,6 +168,7 @@ class MetaAssembler(object):
         self.space.write(EXIT())
         self.space.write(assemble(SET, PC, self.NEXT))
         self.codewords[name] = self.previous
+
 
     def asm(self, name, ucode):
         """
@@ -146,9 +179,12 @@ class MetaAssembler(object):
         |prev|len |name|asm |EXIT|
         """
 
+        print "Adding assembly word %s" % name
+
         self.create(name)
         self.space.write(ucode)
         self.finish(name)
+
 
     def thread(self, name, words):
         """
@@ -159,12 +195,17 @@ class MetaAssembler(object):
         |prev|len |name|word|EXIT|
         """
 
+        print "Adding Forth thread %s" % name
+
         self.create(name)
         self.space.write(ENTER())
         for word in words:
-            if word not in self.codewords:
+            if isinstance(word, int):
+                self.space.write(pack(">H", word))
+            elif word in self.codewords:
+                self.space.write(self.codewords[word])
+            else:
                 raise Exception("Can't reference unknown word %r" % word)
-            self.space.write(self.codewords[word])
         self.finish(name)
 
 
@@ -172,7 +213,7 @@ ma = MetaAssembler()
 
 ucode = _push([J])
 ucode += assemble(ADD, J, 0x1)
-ma.asm("LITERAL", ucode)
+ma.asm("literal", ucode)
 
 ucode = assemble(SET, [Z], PEEK)
 # Move the stack back, and then pop the next word into TOS.
@@ -212,3 +253,20 @@ ma.asm("r!", ucode)
 
 ucode = assemble(ADD, Y, 0x1)
 ma.asm("rdrop", ucode)
+
+ma.thread("key", ["literal", 0x7fff, "@"])
+
+# Top of the line: Go back to the beginning of the string.
+ucode = assemble(SET, X, 0x0)
+# Read a character from the keyboard.
+ucode += assemble(SET, [X + 0x7000], [0x7fff])
+ucode += assemble(SET, A, [X + 0x7000])
+ucode += assemble(ADD, X, 0x1)
+# If it's a space, then we're done. Otherwise, go back to reading things from
+# the keyboard.
+ucode += assemble(IFN, 0x20, A)
+# And loop.
+ucode += assemble(SUB, PC, 0x8)
+ucode += _push(0x7000)
+ucode += _push(X)
+ma.asm("word", ucode)
