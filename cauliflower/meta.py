@@ -259,14 +259,14 @@ ma.thread("key", ["literal", 0x7fff, "@"])
 # Top of the line: Go back to the beginning of the string.
 ucode = assemble(SET, X, 0x0)
 # Read a character from the keyboard.
-ucode += assemble(SET, [X + 0x7000], [0x7fff])
-ucode += assemble(SET, A, [X + 0x7000])
+ucode += assemble(SET, [X + ma.workspace], [0x7fff])
+ucode += assemble(SET, A, [X + ma.workspace])
 ucode += assemble(ADD, X, 0x1)
 # If it's a space, then we're done. Otherwise, go back to reading things from
 # the keyboard.
 ucode += assemble(IFN, 0x20, A)
 # And loop.
 ucode += assemble(SUB, PC, 0x8)
-ucode += _push(0x7000)
+ucode += _push(ma.workspace)
 ucode += _push(X)
 ma.asm("word", ucode)
