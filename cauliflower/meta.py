@@ -156,6 +156,20 @@ class MetaAssembler(object):
         self.space.write("\x00\x00")
 
 
+    def finalize(self):
+        # Write HERE and LATEST.
+        location = self.space.tell()
+        here = pack(">H", location)
+        latest = pack(">H", self.previous)
+        self.space.seek(self.HERE)
+        self.space.write(here)
+        self.space.seek(self.LATEST)
+        self.space.write(latest)
+
+        # Reset file pointer.
+        self.space.seek(location)
+
+
     def create(self, name):
         """
         Write a header into the core and update the previous header marker.
@@ -324,3 +338,5 @@ ucode += assemble(SET, Z, 0x0)
 ma.asm("find", ucode)
 
 ma.thread(">cfa", ["literal", 0x1, "+", "dup", "@", "+", "literal", 0x1, "+"])
+
+ma.finalize()
