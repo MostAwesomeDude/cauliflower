@@ -8,6 +8,8 @@ from struct import pack
 (SET, ADD, SUB, MUL, DIV, MOD, SHL, SHR, AND, BOR, XOR, IFE, IFN, IFG, IFB
 ) = range(1, 16)
 
+JSR = object()
+
 binops = range(1, 16)
 
 Absolute = namedtuple("Absolute", "value")
@@ -80,6 +82,13 @@ def assemble(op, a, b=None):
             rv += pack(">H", valuea[1])
         if len(valueb) == 2:
             rv += pack(">H", valueb[1])
+        return rv
+    elif op is JSR:
+        valuea = value(a)
+        n = (valuea[0] << 10) | (0x1 << 4)
+        rv = pack(">H", n)
+        if len(valuea) == 2:
+            rv += pack(">H", valuea[1])
         return rv
 
     raise Exception("Couldn't deal with op %r" % (op,))

@@ -1,8 +1,12 @@
 from unittest import TestCase
 
-from cauliflower.assembler import A, PC, PUSH, SET, Z, Absolute, assemble
+from cauliflower.assembler import A, JSR, PC, PUSH, SET, Z, Absolute, assemble
 
 class TestAssembler(TestCase):
+
+    def test_jsr_literal(self):
+        expected = "\x7c\x10\x00\x42"
+        self.assertEqual(expected, assemble(JSR, 0x42))
 
     def test_set_pc_literal(self):
         expected = "\xc5\xc1"
