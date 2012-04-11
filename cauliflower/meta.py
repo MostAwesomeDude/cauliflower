@@ -335,8 +335,36 @@ ucode = until(ucode, (IFE, B, 0x0))
 # We finished the loop and couldn't find anything. Guess we'll just set Z to
 # 0x0 and exit.
 ucode += assemble(SET, Z, 0x0)
-ma.asm("find", ucode)
+ma.asm("find", preamble + ucode)
 
 ma.thread(">cfa", ["literal", 0x1, "+", "dup", "@", "+", "literal", 0x1, "+"])
+
+# Grab HERE. It's going to live in A for a bit.
+preamble = assemble(SET, A, [ma.HERE])
+# Write LATEST to HERE, update LATEST.
+preamble += assemble(SET, [A], [ma.LATEST])
+preamble += assemble(SET, [ma.LATEST], A)
+# Move ahead, write length.
+preamble += assemble(ADD, A, 0x1)
+preamble += assemble(SET, [A], Z)
+# SP is nerfed, so grab the source address and put it in B.
+preamble += assemble(SET, B, PEEK)
+# Loop. Copy from the source address to the target address.
+ucode = assemble(SUB, Z, 0x1)
+ucode += assemble(SET, [A], [B])
+ucode += assemble(ADD, A, 0x1)
+ucode += assemble(ADD, B, 0x1)
+# Break when we have no more bytes to copy.
+ucode = until(ucode, (IFE, Z, 0x0))
+# Write out the new HERE.
+ucode += assemble(SET, [ma.HERE], A)
+# Get the stack to be sane again. Shift it down and then pop, same as 2drop.
+ucode += assemble(ADD, SP, 0x1)
+ucode += assemble(SET, Z, POP)
+ma.asm("create", preamble + ucode)
+
+# Pop the target address (below TOS) into a working register. Leave length on
+# TOS.
+preamble = assemble(SET, A, POP)
 
 ma.finalize()
