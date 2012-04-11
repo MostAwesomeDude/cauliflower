@@ -21,10 +21,14 @@ put the address of QUIT into IP, and then call IP.
 from StringIO import StringIO
 from struct import pack
 
-from cauliflower.assembler import (A, ADD, B, C, I, IFE, IFN, J, JSR, PEEK,
-                                   PC, POP, PUSH, SET, SP, SUB, X, Y, Z,
+from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, JSR,
+                                   PEEK, PC, POP, PUSH, SET, SP, SUB, X, Y, Z,
                                    assemble, until)
 from cauliflower.utilities import memcmp
+
+
+IMMEDIATE = 0x4000
+HIDDEN = 0x8000
 
 
 def NEXT():
@@ -170,14 +174,17 @@ class MetaAssembler(object):
         self.space.seek(location)
 
 
-    def create(self, name):
+    def create(self, name, flags):
         """
         Write a header into the core and update the previous header marker.
         """
 
         location = self.space.tell() // 2
+        length = pack(">HH", self.previous, len(name))
+        if flags:
+            length |= flags
 
-        self.space.write(pack(">HH", self.previous, len(name)))
+        self.space.write(length)
         self.space.write(name.encode("utf-16-be"))
 
         self.previous = location
@@ -193,7 +200,7 @@ class MetaAssembler(object):
         self.codewords[name] = self.previous
 
 
-    def asm(self, name, ucode):
+    def asm(self, name, ucode, flags=None):
         """
         Write an assembly-level word into the core.
 
@@ -204,12 +211,12 @@ class MetaAssembler(object):
 
         print "Adding assembly word %s" % name
 
-        self.create(name)
+        self.create(name, flags)
         self.space.write(ucode)
         self.finish(name)
 
 
-    def thread(self, name, words):
+    def thread(self, name, words, flags=None):
         """
         Assemble a thread of words into the core.
 
@@ -220,13 +227,13 @@ class MetaAssembler(object):
 
         print "Adding Forth thread %s" % name
 
-        self.create(name)
-        self.space.write(ENTER())
+        self.create(name, flags)
+        self.space.write(pack(">H", self.codewords["enter"]))
         for word in words:
             if isinstance(word, int):
                 self.space.write(pack(">H", word))
             elif word in self.codewords:
-                self.space.write(self.codewords[word])
+                self.space.write(pack(">H", self.codewords[word]))
             else:
                 raise Exception("Can't reference unknown word %r" % word)
         self.finish(name)
@@ -235,6 +242,9 @@ class MetaAssembler(object):
 ma = MetaAssembler()
 
 # Compiling words.
+
+ucode = ENTER()
+ma.asm("enter", ucode)
 
 ucode = _push([J])
 ucode += assemble(ADD, J, 0x1)
@@ -297,6 +307,22 @@ ma.asm("+", ucode)
 
 ma.thread("key", ["literal", 0x7fff, "@"])
 
+# Global access.
+
+# This could be done in Forth, but it's so small in assembly!
+ucode = _pop([ma.HERE])
+ucode += assemble(ADD, [ma.HERE], 0x1)
+ma.asm(",", ucode)
+
+ucode = assemble(SET, [ma.STATE], 0x0)
+ma.asm("[", ucode)
+
+ucode = assemble(SET, [ma.STATE], 0x1)
+ma.asm("]", ucode)
+
+ucode = _push([ma.LATEST])
+ma.asm("latest", ucode)
+
 # Top of the line: Go back to the beginning of the string.
 ucode = assemble(SET, X, 0x0)
 # Read a character from the keyboard.
@@ -347,6 +373,8 @@ preamble += assemble(SET, [ma.LATEST], A)
 # Move ahead, write length.
 preamble += assemble(ADD, A, 0x1)
 preamble += assemble(SET, [A], Z)
+# Set the hidden flag.
+preamble += assemble(BOR, [A], HIDDEN)
 # SP is nerfed, so grab the source address and put it in B.
 preamble += assemble(SET, B, PEEK)
 # Loop. Copy from the source address to the target address.
@@ -363,19 +391,24 @@ ucode += assemble(ADD, SP, 0x1)
 ucode += assemble(SET, Z, POP)
 ma.asm("create", preamble + ucode)
 
-# Pop the target address (below TOS) into a working register. Leave length on
-# TOS.
-preamble = assemble(SET, A, POP)
+# The stack points to the top of the header. Move forward one...
+ucode = assemble(ADD, Z, 0x1)
+# Now add in the hidden flag.
+ucode += assemble(BOR, [Z], HIDDEN)
+# And pop the stack.
+ucode += assemble(SET, Z, POP)
+ma.asm("hidden", ucode)
 
-# This could be done in Forth, but it's so small in assembly!
-ucode = _pop([ma.HERE])
-ucode += assemble(ADD, [ma.HERE], 0x1)
-ma.asm(",", ucode)
-
-ucode = assemble(SET, [ma.STATE], 0x0)
-ma.asm("[", ucode)
-
-ucode = assemble(SET, [ma.STATE], 0x1)
-ma.asm("]", ucode)
+ma.thread(":", [
+    "word",
+    "create",
+    "literal",
+    "enter",
+    ",",
+    "latest",
+    "@",
+    "hidden",
+    "]",
+])
 
 ma.finalize()
