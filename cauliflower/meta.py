@@ -253,6 +253,7 @@ ma.asm("exit", ucode)
 ucode = _push([J])
 ucode += assemble(ADD, J, 0x1)
 ma.asm("literal", ucode)
+ma.asm("'", ucode)
 
 # Low-level memory manipulation.
 
