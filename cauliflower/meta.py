@@ -22,7 +22,7 @@ from StringIO import StringIO
 from struct import pack
 
 from cauliflower.assembler import (A, ADD, I, IFN, J, PEEK, PC, POP, PUSH,
-                                   SET, SP, SUB, X, Y, Z, assemble)
+                                   SET, SP, SUB, X, Y, Z, assemble, until)
 
 
 def NEXT():
@@ -264,9 +264,7 @@ ucode += assemble(SET, A, [X + ma.workspace])
 ucode += assemble(ADD, X, 0x1)
 # If it's a space, then we're done. Otherwise, go back to reading things from
 # the keyboard.
-ucode += assemble(IFN, 0x20, A)
-# And loop.
-ucode += assemble(SUB, PC, 0x8)
+ucode = until(ucode, (IFN, 0x20, A))
 ucode += _push(ma.workspace)
 ucode += _push(X)
 ma.asm("word", ucode)
