@@ -22,8 +22,8 @@ from StringIO import StringIO
 from struct import pack
 
 from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, JSR,
-                                   PEEK, PC, POP, PUSH, SET, SP, SUB, X, Y, Z,
-                                   assemble, until)
+                                   PEEK, PC, POP, PUSH, SET, SP, SUB, X, XOR,
+                                   Y, Z, assemble, until)
 from cauliflower.utilities import memcmp
 
 
@@ -180,11 +180,12 @@ class MetaAssembler(object):
         """
 
         location = self.space.tell() // 2
-        length = pack(">HH", self.previous, len(name))
+        length = len(name)
         if flags:
             length |= flags
+        header = pack(">HH", self.previous, length)
 
-        self.space.write(length)
+        self.space.write(header)
         self.space.write(name.encode("utf-16-be"))
 
         self.previous = location
@@ -245,6 +246,9 @@ ma = MetaAssembler()
 
 ucode = ENTER()
 ma.asm("enter", ucode)
+
+ucode = EXIT()
+ma.asm("exit", ucode)
 
 ucode = _push([J])
 ucode += assemble(ADD, J, 0x1)
@@ -393,11 +397,17 @@ ma.asm("create", preamble + ucode)
 
 # The stack points to the top of the header. Move forward one...
 ucode = assemble(ADD, Z, 0x1)
-# Now add in the hidden flag.
-ucode += assemble(BOR, [Z], HIDDEN)
+# Now XOR in the hidden flag.
+ucode += assemble(XOR, [Z], HIDDEN)
 # And pop the stack.
 ucode += assemble(SET, Z, POP)
 ma.asm("hidden", ucode)
+
+# We get to grab LATEST ourselves. On the plus side, no stack touching.
+ucode = assemble(SET, A, ma.LATEST)
+# XOR that flag!
+ucode += assemble(XOR, [A + 0x1], IMMEDIATE)
+ma.asm("immediate", ucode)
 
 ma.thread(":", [
     "word",
@@ -410,5 +420,15 @@ ma.thread(":", [
     "hidden",
     "]",
 ])
+
+ma.thread(";", [
+    "literal",
+    "exit",
+    ",",
+    "latest",
+    "@",
+    "hidden",
+    "[",
+], flags=IMMEDIATE)
 
 ma.finalize()
