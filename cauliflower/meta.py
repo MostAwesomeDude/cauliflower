@@ -21,8 +21,10 @@ put the address of QUIT into IP, and then call IP.
 from StringIO import StringIO
 from struct import pack
 
-from cauliflower.assembler import (A, ADD, I, IFN, J, PEEK, PC, POP, PUSH,
-                                   SET, SP, SUB, X, Y, Z, assemble, until)
+from cauliflower.assembler import (A, ADD, B, C, I, IFE, IFN, J, JSR, PEEK,
+                                   PC, POP, PUSH, SET, SP, SUB, X, Y, Z,
+                                   assemble, until)
+from cauliflower.utilities import memcmp
 
 
 def NEXT():
@@ -105,6 +107,9 @@ class MetaAssembler(object):
     # literal instead of a long literal.
     NEXT = 0x0
 
+    # Address of memcmp.
+    memcmp = 0x0
+
     # Workspace address.
     workspace = 0x7000
 
@@ -116,6 +121,10 @@ class MetaAssembler(object):
         # Set up NEXT.
         self.NEXT = self.space.tell() // 2
         self.space.write(NEXT())
+
+        # Set up memcmp.
+        self.memcmp = self.space.tell() // 2
+        self.space.write(memcmp())
 
         # Hold codewords for threads as we store them.
         self.codewords = {}
@@ -268,3 +277,30 @@ ucode = until(ucode, (IFN, 0x20, A))
 ucode += _push(ma.workspace)
 ucode += _push(X)
 ma.asm("word", ucode)
+
+# Pop the target address (below TOS) into a working register. Leave length on
+# TOS.
+preamble = assemble(SET, A, POP)
+# Use B as our linked list pointer.
+preamble += assemble(SET, B, ma.LATEST)
+# Top of the loop. Dereference B to move along the list.
+ucode = assemble(SET, B, [B])
+# Compare lengths; if they don't match, go to the next one.
+ucode = until(ucode, (IFN, [B + 0x1], Z))
+# memcmp() the strings.
+ucode += assemble(ADD, B, 0x1)
+ucode += assemble(SET, C, A)
+ucode += assemble(SET, A, Z)
+ucode += assemble(JSR, ma.memcmp)
+ucode += assemble(SUB, B, 0x1)
+# If it succeeded, push the address back onto the stack and then jump out.
+ucode += assemble(IFN, A, 0x0)
+ucode += assemble(SET, Z, B)
+ucode += assemble(IFN, A, 0x0)
+ucode += assemble(ADD, PC, 0x4)
+# Loop until we hit NULL.
+ucode = until(ucode, (IFE, B, 0x0))
+# We finished the loop and couldn't find anything. Guess we'll just set Z to
+# 0x0 and exit.
+ucode += assemble(SET, Z, 0x0)
+ma.asm("find", ucode)
