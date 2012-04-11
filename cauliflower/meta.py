@@ -220,9 +220,13 @@ class MetaAssembler(object):
 
 ma = MetaAssembler()
 
+# Compiling words.
+
 ucode = _push([J])
 ucode += assemble(ADD, J, 0x1)
 ma.asm("literal", ucode)
+
+# Low-level memory manipulation.
 
 ucode = assemble(SET, [Z], PEEK)
 # Move the stack back, and then pop the next word into TOS.
@@ -246,6 +250,13 @@ ucode += assemble(ADD, SP, 0x1)
 ucode += _pop(Z)
 ma.asm("-!", ucode)
 
+# Main stack manipulation.
+
+ucode = assemble(SET, PUSH, Z)
+ma.asm("dup", ucode)
+
+# Return stack manipulation.
+
 ucode = _push([Y])
 ucode += assemble(ADD, Y, 0x1)
 ma.asm("r>", ucode)
@@ -262,6 +273,13 @@ ma.asm("r!", ucode)
 
 ucode = assemble(ADD, Y, 0x1)
 ma.asm("rdrop", ucode)
+
+# Arithmetic.
+
+ucode = assemble(ADD, Z, POP)
+ma.asm("+", ucode)
+
+# Input.
 
 ma.thread("key", ["literal", 0x7fff, "@"])
 
@@ -304,3 +322,5 @@ ucode = until(ucode, (IFE, B, 0x0))
 # 0x0 and exit.
 ucode += assemble(SET, Z, 0x0)
 ma.asm("find", ucode)
+
+ma.thread(">cfa", ["literal", 0x1, "+", "dup", "@", "+", "literal", 0x1, "+"])
