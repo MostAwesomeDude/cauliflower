@@ -28,6 +28,10 @@ class TestAssembler(TestCase):
         expected = "\x89\xa1"
         self.assertEqual(expected, assemble(SET, PUSH, 0x2))
 
+    def test_set_push_z(self):
+        expected = "\x15\xa1"
+        self.assertEqual(expected, assemble(SET, PUSH, Z))
+
     def test_set_register_literal(self):
         expected = "\x7c\x01\x00\x30"
         self.assertEqual(expected, assemble(SET, A, 0x30))
