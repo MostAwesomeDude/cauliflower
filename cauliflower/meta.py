@@ -367,4 +367,15 @@ ma.asm("create", preamble + ucode)
 # TOS.
 preamble = assemble(SET, A, POP)
 
+# This could be done in Forth, but it's so small in assembly!
+ucode = _pop([ma.HERE])
+ucode += assemble(ADD, [ma.HERE], 0x1)
+ma.asm(",", ucode)
+
+ucode = assemble(SET, [ma.STATE], 0x0)
+ma.asm("[", ucode)
+
+ucode = assemble(SET, [ma.STATE], 0x1)
+ma.asm("]", ucode)
+
 ma.finalize()
