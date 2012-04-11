@@ -83,3 +83,24 @@ def assemble(op, a, b=None):
         return rv
 
     raise Exception("Couldn't deal with op %r" % (op,))
+
+def until(ucode, condition):
+    """
+    While a condition fails, repeat a block of instructions. When the
+    condition succeeds, the block will be exited by jumping to the next
+    instruction at the end of the block.
+
+    The loop is PIC if its contents are also PIC.
+    """
+
+    op, a, b = condition
+    if op not in (IFB, IFE, IFG, IFN):
+        raise Exception("Op %r isn't conditional" % (op,))
+    ucode += assemble(op, a, b)
+    distance = len(ucode) // 2
+    # Compensate for the extra word required to long-jump.
+    if distance >= 0x20:
+        distance += 1
+    ucode += assemble(SUB, PC, distance)
+
+    return ucode
