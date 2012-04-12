@@ -291,12 +291,31 @@ ucode += assemble(IFE, Z, 0x0)
 ucode += assemble(ADD, J, 0x1)
 ma.asm("0branch", ucode)
 
+# Goddammit DCPU!
+ucode = assemble(SUB, J, [J])
+ma.asm("nbranch", ucode)
+
+ucode = assemble(IFN, Z, 0x0)
+ucode += assemble(SUB, J, [J])
+ucode += assemble(IFE, Z, 0x0)
+ucode += assemble(ADD, J, 0x1)
+ma.asm("0nbranch", ucode)
+
 # Main stack manipulation.
 
 ucode = assemble(SET, PUSH, Z)
 ma.asm("dup", ucode)
 
 # Return stack manipulation.
+
+ucode = _push(0xd000)
+ma.asm("r0", ucode)
+
+ucode = _push(Y)
+ma.asm("rsp@", ucode)
+
+ucode = _pop(Y)
+ma.asm("rsp!", ucode)
 
 ucode = _push([Y])
 ucode += assemble(ADD, Y, 0x1)
@@ -443,5 +462,7 @@ ma.thread(";", [
     "hidden",
     "[",
 ], flags=IMMEDIATE)
+
+# ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x8])
 
 ma.finalize()
