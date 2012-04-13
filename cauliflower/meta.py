@@ -150,9 +150,9 @@ class MetaAssembler(object):
         self.LATEST = self.space.tell()
         self.space.write("\x00\x00")
 
-        # Don't forget BASE.
-        self.BASE = self.space.tell()
-        self.space.write("\x00\x00")
+        # Don't forget FB.
+        self.FB = self.space.tell()
+        self.space.write("\x80\x00")
 
 
     def lib(self):
@@ -347,6 +347,13 @@ ma.asm("+", ucode)
 ucode = assemble(SET, PUSH, Z)
 ucode += read(Z)
 ma.asm("key", ucode)
+
+# Output.
+
+ucode = assemble(SET, A, [ma.FB])
+ucode += _pop([A])
+ucode += assemble(ADD, [ma.FB], 0x1)
+ma.asm("emit", ucode)
 
 # Global access.
 
