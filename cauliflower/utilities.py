@@ -48,3 +48,9 @@ def memcpy():
     # And return.
     ucode += assemble(SET, PC, POP)
     return preamble + ucode
+
+
+library = {
+    "memcmp": memcmp,
+    "memcpy": memcpy,
+}

@@ -24,7 +24,7 @@ from struct import pack
 from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, JSR,
                                    PEEK, PC, POP, PUSH, SET, SP, SUB, X, XOR,
                                    Y, Z, assemble, until)
-from cauliflower.utilities import memcmp
+from cauliflower.utilities import library
 
 
 IMMEDIATE = 0x4000
@@ -111,9 +111,6 @@ class MetaAssembler(object):
     # literal instead of a long literal.
     NEXT = 0x0
 
-    # Address of memcmp.
-    memcmp = 0x0
-
     # Workspace address.
     workspace = 0x7000
 
@@ -126,9 +123,7 @@ class MetaAssembler(object):
         self.NEXT = self.space.tell() // 2
         self.space.write(NEXT())
 
-        # Set up memcmp.
-        self.memcmp = self.space.tell() // 2
-        self.space.write(memcmp())
+        self.lib()
 
         # Hold codewords for threads as we store them.
         self.codewords = {}
@@ -158,6 +153,14 @@ class MetaAssembler(object):
         # Don't forget BASE.
         self.BASE = self.space.tell()
         self.space.write("\x00\x00")
+
+
+    def lib(self):
+        self.library = {}
+        for name in library:
+            print "Adding library function", name
+            self.library[name] = self.space.tell() // 2
+            self.space.write(library[name]())
 
 
     def finalize(self):
@@ -385,7 +388,7 @@ ucode = until(ucode, (IFN, [B + 0x1], Z))
 ucode += assemble(ADD, B, 0x1)
 ucode += assemble(SET, C, A)
 ucode += assemble(SET, A, Z)
-ucode += assemble(JSR, ma.memcmp)
+ucode += assemble(JSR, ma.library["memcmp"])
 ucode += assemble(SUB, B, 0x1)
 # If it succeeded, push the address back onto the stack and then jump out.
 ucode += assemble(IFN, A, 0x0)
