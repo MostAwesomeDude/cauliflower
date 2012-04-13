@@ -50,6 +50,20 @@ def memcpy():
     return preamble + ucode
 
 
+def read(register):
+    """
+    Get a byte from the keyboard and put it in the given register.
+
+    This blocks.
+    """
+
+    ucode = assemble(SET, register, [0x9010])
+    ucode = until(ucode, (IFN, register, 0x0))
+    ucode += assemble(SET, [0x9010], 0x0)
+    ucode += assemble(SET, PC, POP)
+    return ucode
+
+
 library = {
     "memcmp": memcmp,
     "memcpy": memcpy,

@@ -21,10 +21,10 @@ put the address of QUIT into IP, and then call IP.
 from StringIO import StringIO
 from struct import pack
 
-from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, JSR,
-                                   PEEK, PC, POP, PUSH, SET, SP, SUB, X, XOR,
-                                   Y, Z, assemble, until)
-from cauliflower.utilities import library
+from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, PEEK,
+                                   PC, POP, PUSH, SET, SP, SUB, X, XOR, Y, Z,
+                                   assemble, call, until)
+from cauliflower.utilities import library, read
 
 
 IMMEDIATE = 0x4000
@@ -344,7 +344,9 @@ ma.asm("+", ucode)
 
 # Input.
 
-ma.thread("key", ["literal", 0x7fff, "@"])
+ucode = assemble(SET, PUSH, Z)
+ucode += read(Z)
+ma.asm("key", ucode)
 
 # Global access.
 
@@ -365,6 +367,7 @@ ma.asm("latest", ucode)
 # Top of the line: Go back to the beginning of the string.
 ucode = assemble(SET, X, 0x0)
 # Read a character from the keyboard.
+ucode += read([X + ma.workspace])
 ucode += assemble(SET, [X + ma.workspace], [0x7fff])
 ucode += assemble(SET, A, [X + ma.workspace])
 ucode += assemble(ADD, X, 0x1)
@@ -388,7 +391,7 @@ ucode = until(ucode, (IFN, [B + 0x1], Z))
 ucode += assemble(ADD, B, 0x1)
 ucode += assemble(SET, C, A)
 ucode += assemble(SET, A, Z)
-ucode += assemble(JSR, ma.library["memcmp"])
+ucode += call(ma.library["memcmp"])
 ucode += assemble(SUB, B, 0x1)
 # If it succeeded, push the address back onto the stack and then jump out.
 ucode += assemble(IFN, A, 0x0)

@@ -93,6 +93,7 @@ def assemble(op, a, b=None):
 
     raise Exception("Couldn't deal with op %r" % (op,))
 
+
 def until(ucode, condition):
     """
     While a condition fails, repeat a block of instructions. When the
@@ -112,4 +113,17 @@ def until(ucode, condition):
         distance += 1
     ucode += assemble(SUB, PC, distance)
 
+    return ucode
+
+
+def call(address):
+    """
+    Perform a nothing-saved, no-rules call.
+    """
+
+    jump = assemble(JSR, address)
+    distance = len(jump) // 2
+    ucode = assemble(SET, PUSH, PC)
+    ucode += assemble(ADD, PEEK, distance + 0x1)
+    ucode += jump
     return ucode
