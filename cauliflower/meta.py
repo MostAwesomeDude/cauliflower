@@ -463,6 +463,6 @@ ma.thread(";", [
     "[",
 ], flags=IMMEDIATE)
 
-# ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x8])
+# ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
 
 ma.finalize()

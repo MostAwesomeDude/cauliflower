@@ -8,7 +8,7 @@ from cauliflower.assembler import (A, ADD, B, BOR, C, IFE, IFN, PC, POP, PUSH,
 def memcmp():
     """
     Put a length in A, two addresses in B and C, and fill A with whether
-    they match (non-zero) or don't match (zero). Clobbers X.
+    they match (non-zero) or don't match (zero).
     """
 
     # Save X.
@@ -26,5 +26,25 @@ def memcmp():
     ucode += assemble(XOR, A, 0xffff)
     # Restore X.
     ucode += assemble(SET, X, POP)
+    ucode += assemble(SET, PC, POP)
+    return preamble + ucode
+
+
+def memcpy():
+    """
+    Copy A bytes from B to C. Clobbers A.
+
+    The copy is made back to front. No overlapping check is done.
+    """
+
+    preamble = assemble(ADD, B, A)
+    preamble += assemble(ADD, C, A)
+    # Top of the loop.
+    ucode = assemble(SUB, A, 0x1)
+    ucode += assemble(SUB, B, 0x1)
+    ucode += assemble(SUB, C, 0x1)
+    ucode += assemble(SET, [C], [B])
+    ucode = until(ucode, (IFN, A, 0x0))
+    # And return.
     ucode += assemble(SET, PC, POP)
     return preamble + ucode
