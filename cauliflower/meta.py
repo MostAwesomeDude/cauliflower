@@ -5,12 +5,9 @@ There are seven Forth registers: W, IP, PSP, RSP, X, UP, and TOS. They are
 assigned to hardware registers as follows:
 
 +---+--+
-|W  |I |
 |IP |J |
 |PSP|SP|
 |RSP|Y |
-|X  |X |
-|UP |C |
 |TOS|Z |
 +---+--+
 
@@ -31,15 +28,6 @@ IMMEDIATE = 0x4000
 HIDDEN = 0x8000
 
 
-def NEXT():
-    """
-    Increment IP and jump to the address which it contains.
-    """
-    ucode = assemble(ADD, J, 0x1)
-    ucode += assemble(SET, PC, J)
-    return ucode
-
-
 def PUSHRSP(register):
     """
     Push onto RSP.
@@ -55,27 +43,6 @@ def POPRSP(register):
     """
     ucode = assemble(SET, register, [Y])
     ucode += assemble(ADD, Y, 0x1)
-    return ucode
-
-
-def ENTER():
-    """
-    Push IP onto RSP, increment W, move W to IP, and call NEXT.
-
-    Sometimes called DOCOL.
-    """
-    ucode = PUSHRSP(J)
-    ucode += assemble(ADD, I, 0x1)
-    ucode += assemble(SET, J, I)
-    ucode += NEXT()
-    return ucode
-
-
-def EXIT():
-    """
-    Pop RSP into IP.
-    """
-    ucode = POPRSP(J)
     return ucode
 
 
@@ -106,29 +73,21 @@ class MetaAssembler(object):
     # linked list.
     previous = 0x0
 
-    # Address of NEXT. NEXT isn't contained in a thread and hopefully is close
-    # enough to the top of address space that it can be jumped to with a short
-    # literal instead of a long literal.
-    NEXT = 0x0
-
     # Workspace address.
     workspace = 0x7000
 
 
     def __init__(self):
-        self.space = StringIO()
-        self.bootloader()
-
-        # Set up NEXT.
-        self.NEXT = self.space.tell() // 2
-        self.space.write(NEXT())
-
-        self.lib()
-
         # Hold codewords for threads as we store them.
         self.asmwords = {}
         self.codewords = {}
         self.datawords = {}
+
+        # Initialize the space.
+        self.space = StringIO()
+        self.bootloader()
+
+        self.lib()
 
 
     def bootloader(self):
@@ -137,8 +96,8 @@ class MetaAssembler(object):
         """
 
         self.space.write(assemble(SET, Y, 0xd000))
-        # XXX this would push QUIT and jump, at some point.
-        self.space.write("\x00" *  2 * 2)
+        # This will push QUIT and jump, at some point.
+        self.space.write("\x00" * 2 * 3)
 
         # Allocate space for STATE.
         self.STATE = self.space.tell()
@@ -155,6 +114,22 @@ class MetaAssembler(object):
         # Don't forget FB.
         self.FB = self.space.tell()
         self.space.write("\x80\x00")
+
+        # NEXT. Increment IP and move through it.
+        ucode = assemble(ADD, J, 0x1)
+        ucode += assemble(SET, PC, [J])
+        self.prim("next", ucode)
+
+        # EXIT. Pop RSP into IP and then call NEXT.
+        ucode = POPRSP(J)
+        ucode += assemble(SET, PC, self.asmwords["next"])
+        self.prim("exit", ucode)
+
+        # ENTER. Deref IP to find the caller, push the caller onto RSP, call
+        # NEXT.
+        ucode = PUSHRSP([J])
+        ucode += assemble(SET, PC, self.asmwords["next"])
+        self.prim("enter", ucode)
 
 
     def lib(self):
@@ -176,7 +151,8 @@ class MetaAssembler(object):
         self.space.write(latest)
 
         self.space.seek(4)
-        ucode = assemble(SET, PC, Absolute(self.codewords["quit"]))
+        ucode = assemble(SET, J, Absolute(self.codewords["quit"]))
+        ucode += assemble(SET, PC, J)
         self.space.write(ucode)
 
         # Reset file pointer.
@@ -198,6 +174,7 @@ class MetaAssembler(object):
         """
 
         location = self.space.tell() // 2
+        self.datawords[name] = location
 
         print "Creating data word", name, "at 0x%x" % location
 
@@ -206,10 +183,11 @@ class MetaAssembler(object):
             length |= flags
         header = pack(">HH", self.previous, length)
 
+        # Swap locations.
+        self.previous = location
+
         self.space.write(header)
         self.space.write(name.encode("utf-16-be"))
-
-        self.previous = location
 
         location = self.space.tell() // 2
 
@@ -218,30 +196,20 @@ class MetaAssembler(object):
         self.codewords[name] = location
 
 
-    def finish(self, name):
-        """
-        Finish writing a word or thread.
-        """
-
-        self.space.write(EXIT())
-        self.space.write(assemble(SET, PC, self.NEXT))
-        self.datawords[name] = self.previous
-
-
     def asm(self, name, ucode, flags=None):
         """
         Write an assembly-level word into the core.
 
         Here's what the word looks like:
 
-        |prev|len |name|asm |EXIT|
+        |prev|len |name|asm |NEXT|
         """
 
         print "Adding assembly word %s" % name
 
         self.create(name, flags)
         self.space.write(ucode)
-        self.finish(name)
+        self.space.write(assemble(SET, PC, self.asmwords["next"]))
 
 
     def thread(self, name, words, flags=None):
@@ -250,7 +218,7 @@ class MetaAssembler(object):
 
         Here's what a thread looks like:
 
-        |prev|len |name|word|EXIT|
+        |prev|len |name|ENTER|word|EXIT|
         """
 
         print "Adding Forth thread %s" % name
@@ -266,7 +234,7 @@ class MetaAssembler(object):
                 self.space.write(pack(">H", self.codewords[word]))
             else:
                 raise Exception("Can't reference unknown word %r" % word)
-        self.finish(name)
+        self.space.write(pack(">H", self.asmwords["exit"]))
 
 
 ma = MetaAssembler()
@@ -290,16 +258,7 @@ ucode = until(ucode, (IFN, 0x20, [C]))
 ucode += assemble(SET, C, ma.workspace)
 ma.prim("word", ucode)
 
-ucode = ENTER()
-ma.prim("enter", ucode)
-
 # Compiling words.
-
-ucode = ENTER()
-ma.asm("enter", ucode)
-
-ucode = EXIT()
-ma.asm("exit", ucode)
 
 ucode = _push([J])
 ucode += assemble(ADD, J, 0x1)
@@ -514,8 +473,7 @@ ma.asm("immediate", ucode)
 ma.thread(":", [
     "word",
     "create",
-    "'",
-    "enter",
+    "literal", ma.asmwords["enter"],
     ",",
     "latest",
     "@",
@@ -524,8 +482,7 @@ ma.thread(":", [
 ])
 
 ma.thread(";", [
-    "'",
-    "exit",
+    "literal", ma.asmwords["exit"],
     ",",
     "latest",
     "@",
