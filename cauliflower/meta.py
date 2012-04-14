@@ -317,7 +317,7 @@ ma.asm("0=", ucode)
 def IF(then, otherwise=[]):
     if otherwise:
         then += ["branch", len(otherwise)]
-    return ["0branch", len(then)] + then + otherwise
+    return ["0=", "0branch", len(then)] + then + otherwise
 
 # Main stack manipulation.
 
@@ -472,7 +472,7 @@ ma.asm("immediate", ucode)
 ma.thread(":", [
     "word",
     "create",
-    "literal",
+    "'",
     "enter",
     ",",
     "latest",
@@ -482,7 +482,7 @@ ma.thread(":", [
 ])
 
 ma.thread(";", [
-    "literal",
+    "'",
     "exit",
     ",",
     "latest",
@@ -490,14 +490,6 @@ ma.thread(";", [
     "hidden",
     "[",
 ], flags=IMMEDIATE)
-
-ma.thread("interpret", [
-    "word",
-    "find",
-    "dup",
-    "0=",
-    ] + IF(["exit"]) + [
-])
 
 ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
 
