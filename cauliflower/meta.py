@@ -24,6 +24,14 @@ from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, PEEK,
 from cauliflower.utilities import library, read, write
 
 
+class EvenStringIO(StringIO):
+    def tell(self):
+        rv = StringIO.tell(self)
+        if rv % 2:
+            raise Exception("Offset %d is odd!" % rv)
+        return rv // 2
+
+
 IMMEDIATE = 0x4000
 HIDDEN = 0x8000
 
@@ -84,7 +92,7 @@ class MetaAssembler(object):
         self.datawords = {}
 
         # Initialize the space.
-        self.space = StringIO()
+        self.space = EvenStringIO()
         self.bootloader()
 
         self.lib()
@@ -136,7 +144,7 @@ class MetaAssembler(object):
         self.library = {}
         for name in library:
             print "Adding library function", name
-            self.library[name] = self.space.tell() // 2
+            self.library[name] = self.space.tell()
             self.space.write(library[name]())
 
 
@@ -164,7 +172,7 @@ class MetaAssembler(object):
         Write primitive assembly directly into the core.
         """
 
-        self.asmwords[name] = self.space.tell() // 2
+        self.asmwords[name] = self.space.tell()
         self.space.write(ucode)
 
 
@@ -173,7 +181,7 @@ class MetaAssembler(object):
         Write a header into the core and update the previous header marker.
         """
 
-        location = self.space.tell() // 2
+        location = self.space.tell()
         self.datawords[name] = location
 
         print "Creating data word", name, "at 0x%x" % location
@@ -189,7 +197,7 @@ class MetaAssembler(object):
         self.space.write(header)
         self.space.write(name.encode("utf-16-be"))
 
-        location = self.space.tell() // 2
+        location = self.space.tell()
 
         print "Creating code word", name, "at 0x%x" % location
 
