@@ -299,22 +299,22 @@ ma.asm("-!", ucode)
 
 # Low-level branching.
 
-ucode = assemble(ADD, J, [J])
+ucode = assemble(ADD, J, [J + 0x1])
 ma.asm("branch", ucode)
 
 # Ugh.
 ucode = assemble(IFN, Z, 0x0)
-ucode += assemble(ADD, J, [J])
+ucode += assemble(ADD, J, [J + 0x1])
 ucode += assemble(IFE, Z, 0x0)
 ucode += assemble(ADD, J, 0x1)
 ma.asm("0branch", ucode)
 
 # Goddammit DCPU!
-ucode = assemble(SUB, J, [J])
+ucode = assemble(SUB, J, [J + 0x1])
 ma.asm("nbranch", ucode)
 
 ucode = assemble(IFN, Z, 0x0)
-ucode += assemble(SUB, J, [J])
+ucode += assemble(SUB, J, [J + 0x1])
 ucode += assemble(IFE, Z, 0x0)
 ucode += assemble(ADD, J, 0x1)
 ma.asm("0nbranch", ucode)
