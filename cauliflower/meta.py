@@ -24,7 +24,7 @@ from struct import pack
 from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, PEEK,
                                    PC, POP, PUSH, SET, SP, SUB, X, XOR, Y, Z,
                                    assemble, call, until)
-from cauliflower.utilities import library, read
+from cauliflower.utilities import library, read, write
 
 
 IMMEDIATE = 0x4000
@@ -126,6 +126,7 @@ class MetaAssembler(object):
         self.lib()
 
         # Hold codewords for threads as we store them.
+        self.asmwords = {}
         self.codewords = {}
 
 
@@ -175,6 +176,15 @@ class MetaAssembler(object):
 
         # Reset file pointer.
         self.space.seek(location)
+
+
+    def prim(self, name, ucode):
+        """
+        Write primitive assembly directly into the core.
+        """
+
+        self.asmwords[name] = self.space.tell() // 2
+        self.space.write(ucode)
 
 
     def create(self, name, flags):
@@ -244,6 +254,25 @@ class MetaAssembler(object):
 
 
 ma = MetaAssembler()
+
+# Deep primitives.
+
+ma.prim("read", read(A))
+ma.prim("write", write(A))
+
+# Top of the line: Go back to the beginning of the string.
+ucode = assemble(SET, B, 0x0)
+ucode += assemble(SET, C, ma.workspace)
+# Read a character into A.
+ucode += call(ma.asmwords["read"])
+ucode += assemble(SET, [C], A)
+ucode += assemble(ADD, B, 0x1)
+ucode += assemble(ADD, C, 0x1)
+# If it's a space, then we're done. Otherwise, go back to reading things from
+# the keyboard.
+ucode = until(ucode, (IFN, 0x20, [C]))
+ucode += assemble(SET, C, ma.workspace)
+ma.prim("word", ucode)
 
 # Compiling words.
 
@@ -357,11 +386,19 @@ ma.asm("rdrop", ucode)
 ucode = assemble(ADD, Z, POP)
 ma.asm("+", ucode)
 
-# Input.
+# Low-level input.
 
 ucode = assemble(SET, PUSH, Z)
-ucode += read(Z)
+ucode += assemble(SET, A, Z)
+ucode += call(ma.asmwords["read"])
 ma.asm("key", ucode)
+
+# High-level input.
+
+ucode = call(ma.asmwords["word"])
+ucode += _push(B)
+ucode += _push(C)
+ma.asm("word", ucode)
 
 # Output.
 
@@ -385,20 +422,6 @@ ma.asm("]", ucode)
 
 ucode = _push([ma.LATEST])
 ma.asm("latest", ucode)
-
-# Top of the line: Go back to the beginning of the string.
-ucode = assemble(SET, X, 0x0)
-# Read a character from the keyboard.
-ucode += read([X + ma.workspace])
-ucode += assemble(SET, [X + ma.workspace], [0x7fff])
-ucode += assemble(SET, A, [X + ma.workspace])
-ucode += assemble(ADD, X, 0x1)
-# If it's a space, then we're done. Otherwise, go back to reading things from
-# the keyboard.
-ucode = until(ucode, (IFN, 0x20, A))
-ucode += _push(ma.workspace)
-ucode += _push(X)
-ma.asm("word", ucode)
 
 # Pop the target address (below TOS) into a working register. Leave length on
 # TOS.
@@ -490,6 +513,8 @@ ma.thread(";", [
     "hidden",
     "[",
 ], flags=IMMEDIATE)
+
+ma.thread("interpret", [])
 
 ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
 

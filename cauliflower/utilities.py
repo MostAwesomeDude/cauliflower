@@ -1,5 +1,6 @@
-from cauliflower.assembler import (A, ADD, B, BOR, C, IFE, IFN, PC, POP, PUSH,
-                                   SET, SUB, X, XOR, assemble, until)
+from cauliflower.assembler import (A, ADD, B, BOR, C, IFE, IFG, IFN, PC, POP,
+                                   PUSH, SET, SUB, X, XOR, Y, Z, assemble,
+                                   until)
 
 # All of these utility functions expect SP to point to their caller, or at
 # least where their caller would like to return to, and assume that SP is safe
@@ -75,7 +76,7 @@ def write(register):
     """
 
     # Save Y.
-    ucode += assemble(SET, PUSH, Y)
+    ucode = assemble(SET, PUSH, Y)
     # Save Z.
     ucode += assemble(SET, PUSH, Z)
     # Save the data that we're supposed to push.
