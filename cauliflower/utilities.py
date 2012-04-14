@@ -64,6 +64,44 @@ def read(register):
     return ucode
 
 
+def write(register):
+    """
+    Write a byte to the framebuffer.
+
+    The register needs to not be PEEK or POP, because SP is modified when this
+    function is entered.
+
+    Self-modifying code is used to track the cursor in the framebuffer.
+    """
+
+    # Save Y.
+    ucode += assemble(SET, PUSH, Y)
+    # Save Z.
+    ucode += assemble(SET, PUSH, Z)
+    # Save the data that we're supposed to push.
+    ucode = assemble(SET, PUSH, register)
+    # Do some tricky PC manipulation to get a bareword into the code, and
+    # sneak its address into Z.
+    ucode += assemble(SET, Z, PC)
+    ucode += assemble(IFE, 0x0, 0x0)
+    ucode += "\x80\x00"
+    ucode += assemble(ADD, Z, 0x1)
+    # Dereference the framebuffer.
+    ucode += assemble(SET, Y, [Z])
+    # Write to the framebuffer.
+    ucode += assemble(SET, [Y], POP)
+    # Advance the framebuffer.
+    ucode += assemble(ADD, [Z], 0x1)
+    # If the framebuffer has wrapped, wrap the pointer.
+    ucode += assemble(IFG, 0x8200, [Z])
+    ucode += assemble(SUB, [Z], 0x200)
+    # Restore registers and leave.
+    ucode += assemble(SET, Z, POP)
+    ucode += assemble(SET, Y, POP)
+    ucode += assemble(SET, PC, POP)
+    return ucode
+
+
 library = {
     "memcmp": memcmp,
     "memcpy": memcpy,
