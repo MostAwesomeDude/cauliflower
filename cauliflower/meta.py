@@ -25,6 +25,9 @@ from cauliflower.utilities import library, read, write
 
 
 class EvenStringIO(StringIO):
+    def seek(self, value, *args, **kwargs):
+        StringIO.seek(self, value * 2, *args, **kwargs)
+
     def tell(self):
         rv = StringIO.tell(self)
         if rv % 2:
@@ -104,8 +107,11 @@ class MetaAssembler(object):
         """
 
         self.space.write(assemble(SET, Y, 0xd000))
-        # This will push QUIT and jump, at some point.
-        self.space.write("\x00" * 2 * 3)
+        self.space.write(assemble(SET, J, 0x5))
+        self.space.write(assemble(SET, PC, [J]))
+
+        # Allocate space for the address of QUIT.
+        self.space.write("\x00\x00")
 
         # Allocate space for STATE.
         self.STATE = self.space.tell()
@@ -133,9 +139,10 @@ class MetaAssembler(object):
         ucode += assemble(SET, PC, self.asmwords["next"])
         self.prim("exit", ucode)
 
-        # ENTER. Deref IP to find the caller, push the caller onto RSP, call
-        # NEXT.
-        ucode = PUSHRSP([J])
+        # ENTER. Save IP to RSP, dereference IP to find the caller, enter the
+        # new word, call NEXT.
+        ucode = PUSHRSP(J)
+        ucode += assemble(SET, J, [J])
         ucode += assemble(SET, PC, self.asmwords["next"])
         self.prim("enter", ucode)
 
@@ -158,10 +165,8 @@ class MetaAssembler(object):
         self.space.seek(self.LATEST)
         self.space.write(latest)
 
-        self.space.seek(4)
-        ucode = assemble(SET, J, Absolute(self.codewords["quit"]))
-        ucode += assemble(SET, PC, J)
-        self.space.write(ucode)
+        self.space.seek(0x5)
+        self.space.write(pack(">H", self.codewords["quit"]))
 
         # Reset file pointer.
         self.space.seek(location)
