@@ -23,7 +23,7 @@ from struct import pack
 
 from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, PEEK,
                                    PC, POP, PUSH, SET, SP, SUB, X, XOR, Y, Z,
-                                   assemble, call, until)
+                                   Absolute, assemble, call, until)
 from cauliflower.utilities import library, read, write
 
 
@@ -128,6 +128,7 @@ class MetaAssembler(object):
         # Hold codewords for threads as we store them.
         self.asmwords = {}
         self.codewords = {}
+        self.datawords = {}
 
 
     def bootloader(self):
@@ -137,7 +138,7 @@ class MetaAssembler(object):
 
         self.space.write(assemble(SET, Y, 0xd000))
         # XXX this would push QUIT and jump, at some point.
-        self.space.write("\x00" *  2 * 3)
+        self.space.write("\x00" *  2 * 2)
 
         # Allocate space for STATE.
         self.STATE = self.space.tell()
@@ -174,6 +175,10 @@ class MetaAssembler(object):
         self.space.seek(self.LATEST)
         self.space.write(latest)
 
+        self.space.seek(4)
+        ucode = assemble(SET, PC, Absolute(self.codewords["quit"]))
+        self.space.write(ucode)
+
         # Reset file pointer.
         self.space.seek(location)
 
@@ -193,6 +198,9 @@ class MetaAssembler(object):
         """
 
         location = self.space.tell() // 2
+
+        print "Creating data word", name, "at 0x%x" % location
+
         length = len(name)
         if flags:
             length |= flags
@@ -203,6 +211,12 @@ class MetaAssembler(object):
 
         self.previous = location
 
+        location = self.space.tell() // 2
+
+        print "Creating code word", name, "at 0x%x" % location
+
+        self.codewords[name] = location
+
 
     def finish(self, name):
         """
@@ -211,7 +225,7 @@ class MetaAssembler(object):
 
         self.space.write(EXIT())
         self.space.write(assemble(SET, PC, self.NEXT))
-        self.codewords[name] = self.previous
+        self.datawords[name] = self.previous
 
 
     def asm(self, name, ucode, flags=None):
@@ -242,7 +256,9 @@ class MetaAssembler(object):
         print "Adding Forth thread %s" % name
 
         self.create(name, flags)
-        self.space.write(pack(">H", self.codewords["enter"]))
+        # ENTER/DOCOL bytecode.
+        ucode = assemble(SET, PC, self.asmwords["enter"])
+        self.space.write(ucode)
         for word in words:
             if isinstance(word, int):
                 self.space.write(pack(">H", word))
@@ -273,6 +289,9 @@ ucode += assemble(ADD, C, 0x1)
 ucode = until(ucode, (IFN, 0x20, [C]))
 ucode += assemble(SET, C, ma.workspace)
 ma.prim("word", ucode)
+
+ucode = ENTER()
+ma.prim("enter", ucode)
 
 # Compiling words.
 
@@ -514,7 +533,9 @@ ma.thread(";", [
     "[",
 ], flags=IMMEDIATE)
 
-ma.thread("interpret", [])
+ma.thread("interpret", [
+    "word",
+])
 
 ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
 
