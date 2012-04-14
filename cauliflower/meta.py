@@ -304,6 +304,21 @@ ucode += assemble(IFE, Z, 0x0)
 ucode += assemble(ADD, J, 0x1)
 ma.asm("0nbranch", ucode)
 
+# Low-level tests.
+
+# I bet there's a trick to this. I'll revisit this later.
+ucode = assemble(IFN, J, 0x0)
+ucode += assemble(SET, A, 0x1)
+ucode += assemble(IFE, J, 0x0)
+ucode += assemble(SET, A, 0x0)
+ucode += assemble(SET, J, A)
+ma.asm("0=", ucode)
+
+def IF(then, otherwise=[]):
+    if otherwise:
+        then += ["branch", len(otherwise)]
+    return ["0branch", len(then)] + then + otherwise
+
 # Main stack manipulation.
 
 ucode = assemble(SET, PUSH, Z)
@@ -476,7 +491,13 @@ ma.thread(";", [
     "[",
 ], flags=IMMEDIATE)
 
-ma.thread("interpret", [])
+ma.thread("interpret", [
+    "word",
+    "find",
+    "dup",
+    "0=",
+    ] + IF(["exit"]) + [
+])
 
 ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
 
