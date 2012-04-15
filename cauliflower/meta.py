@@ -473,7 +473,9 @@ ucode = until(ucode, (IFE, B, 0x0))
 ucode += assemble(SET, Z, 0x0)
 ma.asm("find", preamble + ucode)
 
-ma.thread(">cfa", ["literal", 0x1, "+", "dup", "@", "+", "literal", 0x1, "+"])
+ma.thread("+1", ["literal", 0x1, "+"])
+
+ma.thread(">cfa", ["+1", "dup", "@", "+", "+1"])
 
 # Grab HERE. It's going to live in A for a bit.
 preamble = assemble(SET, A, [ma.HERE])
