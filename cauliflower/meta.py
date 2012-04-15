@@ -24,9 +24,9 @@ put the address of QUIT into IP, and then call IP.
 from StringIO import StringIO
 from struct import pack
 
-from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, MUL,
-                                   PEEK, PC, POP, PUSH, SET, SP, SUB, X, XOR,
-                                   Y, Z, Absolute, assemble, call, until)
+from cauliflower.assembler import (A, ADD, AND, B, BOR, C, I, IFE, IFN, J,
+                                   MUL, PEEK, PC, POP, PUSH, SET, SP, SUB, X,
+                                   XOR, Y, Z, Absolute, assemble, call, until)
 from cauliflower.utilities import library, read, write
 
 
@@ -287,13 +287,15 @@ ucode += assemble(SUB, B, 0x1)
 ucode = until(ucode, (IFE, B, 0x0))
 ma.prim("snumber", preamble + ucode)
 
-
 # Compiling words.
 
 ucode = _push([J])
 ucode += assemble(ADD, J, 0x1)
 ma.asm("literal", ucode)
 ma.asm("'", ucode)
+
+ucode = assemble(SET, PC, Z)
+ma.asm("call", ucode)
 
 # Low-level memory manipulation.
 
@@ -517,6 +519,9 @@ ucode = assemble(SET, A, ma.LATEST)
 ucode += assemble(XOR, [A + 0x1], IMMEDIATE)
 ma.asm("immediate", ucode)
 
+ucode = assemble(AND, Z, IMMEDIATE)
+ma.asm("immediate?", ucode)
+
 ma.thread(":", [
     "word",
     "create",
@@ -537,7 +542,27 @@ ma.thread(";", [
     "[",
 ], flags=IMMEDIATE)
 
-ma.asm("interpret", "")
+ma.thread("interpret-found", [
+    "dup",
+    "+1",
+    "immediate?",
+    ] + IF([
+        ">cfa",
+        "call",
+    ], [
+        ">cfa",
+        ",",
+    ])
+)
+
+ma.thread("interpret", [
+    "word",
+    "find",
+    "dup",
+    ] + IF([
+        "interpret-found",
+    ])
+)
 
 ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
 
