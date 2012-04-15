@@ -107,7 +107,7 @@ def until(ucode, condition):
     if op not in (IFB, IFE, IFG, IFN):
         raise Exception("Op %r isn't conditional" % (op,))
     ucode += assemble(op, a, b)
-    distance = len(ucode) // 2
+    distance = len(ucode) // 2 + 1
     # Compensate for the extra word required to long-jump.
     if distance >= 0x20:
         distance += 1

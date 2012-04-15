@@ -59,7 +59,7 @@ def read(register):
     """
 
     ucode = assemble(SET, register, [0x9010])
-    ucode = until(ucode, (IFN, register, 0x0))
+    ucode = until(ucode, (IFE, register, 0x0))
     ucode += assemble(SET, [0x9010], 0x0)
     ucode += assemble(SET, PC, POP)
     return ucode
