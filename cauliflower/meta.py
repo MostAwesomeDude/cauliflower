@@ -1,6 +1,12 @@
 """
 The metainterpreter and metabuiltins.
 
+ucode += assemble(SUB, X, ord("0"))
+ucode += assemble(ADD, C, X)
+ucode += assemble(ADD, A, 0x1)
+ucode += assemble(SUB, B, 0x1)
+ucode = until(ucode, (IFE, B, 0x0))
+ma.prim("snumber", preamble + ucode)
 There are seven Forth registers: W, IP, PSP, RSP, X, UP, and TOS. They are
 assigned to hardware registers as follows:
 
@@ -18,9 +24,9 @@ put the address of QUIT into IP, and then call IP.
 from StringIO import StringIO
 from struct import pack
 
-from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, PEEK,
-                                   PC, POP, PUSH, SET, SP, SUB, X, XOR, Y, Z,
-                                   Absolute, assemble, call, until)
+from cauliflower.assembler import (A, ADD, B, BOR, C, I, IFE, IFN, J, MUL,
+                                   PEEK, PC, POP, PUSH, SET, SP, SUB, X, XOR,
+                                   Y, Z, Absolute, assemble, call, until)
 from cauliflower.utilities import library, read, write
 
 
@@ -271,6 +277,17 @@ ucode = until(ucode, (IFN, 0x20, [C]))
 ucode += assemble(SET, C, ma.workspace)
 ma.prim("word", ucode)
 
+preamble = assemble(SET, C, 0x0)
+ucode = assemble(MUL, C, 10)
+ucode += assemble(SET, X, [A])
+ucode += assemble(SUB, X, ord("0"))
+ucode += assemble(ADD, C, X)
+ucode += assemble(ADD, A, 0x1)
+ucode += assemble(SUB, B, 0x1)
+ucode = until(ucode, (IFE, B, 0x0))
+ma.prim("snumber", preamble + ucode)
+
+
 # Compiling words.
 
 ucode = _push([J])
@@ -339,6 +356,9 @@ def IF(then, otherwise=[]):
         then += ["branch", len(otherwise)]
     return ["0=", "0branch", len(then)] + then + otherwise
 
+def UNTIL(loop):
+    return loop + ["0nbranch", len(loop)]
+
 # Main stack manipulation.
 
 ucode = assemble(SET, PUSH, Z)
@@ -390,6 +410,12 @@ ucode = call(ma.asmwords["word"])
 ucode += _push(B)
 ucode += _push(C)
 ma.asm("word", ucode)
+
+ucode = _pop(A)
+ucode += _pop(B)
+ucode += call(ma.asmwords["snumber"])
+ucode += _push(C)
+ma.asm("snumber", ucode)
 
 # Output.
 
@@ -505,6 +531,7 @@ ma.thread(";", [
 
 ma.thread("interpret", [
     "word",
+    "find",
 ])
 
 ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
