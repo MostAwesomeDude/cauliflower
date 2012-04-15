@@ -401,7 +401,7 @@ ma.asm("+", ucode)
 
 ucode = assemble(SET, PUSH, Z)
 ucode += assemble(SET, A, Z)
-ucode += call(ma.asmwords["read"])
+ucode += call(ma.asmwords["word"])
 ma.asm("key", ucode)
 
 # High-level input.
@@ -439,6 +439,12 @@ ma.asm("]", ucode)
 
 ucode = _push([ma.LATEST])
 ma.asm("latest", ucode)
+
+# Compiler stuff.
+
+ucode = call(ma.asmwords["read"])
+ucode += _push([C])
+ma.asm("char", ucode)
 
 # Pop the target address (below TOS) into a working register. Leave length on
 # TOS.
@@ -529,10 +535,7 @@ ma.thread(";", [
     "[",
 ], flags=IMMEDIATE)
 
-ma.thread("interpret", [
-    "word",
-    "find",
-])
+ma.asm("interpret", "")
 
 ma.thread("quit", ["r0", "rsp!", "interpret", "nbranch", 0x2])
 
